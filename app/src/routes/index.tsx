@@ -7,6 +7,7 @@ type CouponRecord = {
   id: string;
   title: string;
   url: string;
+  category: string;
   source: string;
   receivedAt: string;
   expiresAt: string;
@@ -20,7 +21,17 @@ type CouponForm = Omit<CouponRecord, "id" | "activatedAt" | "createdAt" | "updat
 type Status = "active" | "soon" | "expired" | "activated" | "undated";
 const DB_NAME = "coupon-link-vault";
 const STORE_NAME = "coupons";
-const EMPTY_FORM: CouponForm = { title: "Gemini Pro · 18 months", url: "", source: "", receivedAt: "", expiresAt: "", notes: "" };
+const CATEGORY_PRESETS = ["Gemini Pro", "Canva Pro", "ChatGPT Plus", "Other"] as const;
+
+const EMPTY_FORM: CouponForm = {
+  title: "Gemini Pro · 18 months",
+  category: "Gemini Pro",
+  url: "",
+  source: "",
+  receivedAt: "",
+  expiresAt: "",
+  notes: "",
+};
 
 function openDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -37,7 +48,13 @@ function openDatabase(): Promise<IDBDatabase> {
 function readAll(db: IDBDatabase): Promise<CouponRecord[]> {
   return new Promise((resolve, reject) => {
     const request = db.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME).getAll();
-    request.onsuccess = () => resolve((request.result as CouponRecord[]).sort((a, b) => (a.expiresAt || "9999-12-31").localeCompare(b.expiresAt || "9999-12-31")));
+    request.onsuccess = () => {
+      const list = (request.result as CouponRecord[]).map((r) => ({
+        ...r,
+        category: r.category || (r.title?.toLowerCase().includes("canva") ? "Canva Pro" : "Gemini Pro"),
+      }));
+      resolve(list.sort((a, b) => (a.expiresAt || "9999-12-31").localeCompare(b.expiresAt || "9999-12-31")));
+    };
     request.onerror = () => reject(request.error ?? new Error("Could not read local records."));
   });
 }
@@ -128,6 +145,7 @@ function Icon({ name, size = 18 }: { name: string; size?: number }) {
     menu: <><path d="M4 6h16M4 12h16M4 18h16"/></>,
     panelLeft: <><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></>,
     sparkles: <><path d="m12 3 1.9 5.7a1 1 0 0 0 .64.64L20.2 11.2l-5.66 1.86a1 1 0 0 0-.64.64L12 19.4l-1.9-5.7a1 1 0 0 0-.64-.64L3.8 11.2l5.66-1.86a1 1 0 0 0 .64-.64L12 3Z"/></>,
+    palette: <><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.93 0 1.5-.68 1.5-1.5 0-.38-.15-.74-.42-1.02-.27-.27-.43-.63-.43-1.02 0-.83.67-1.5 1.5-1.5H16c3.31 0 6-2.69 6-6 0-4.96-4.49-9-10-9Z"/></>,
     tag: <><path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/><circle cx="7" cy="7" r="1.5"/></>,
     database: <><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/></>,
   };
@@ -145,6 +163,7 @@ function CouponVault() {
   const [form, setForm] = useState<CouponForm>(EMPTY_FORM);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | Status>("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [notice, setNotice] = useState("");
   const [formError, setFormError] = useState("");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -184,25 +203,54 @@ function CouponVault() {
   }, []);
 
   const counts = useMemo(() => {
-    const result = { all: records.length, active: 0, soon: 0, expired: 0, activated: 0, undated: 0 };
+    const result = {
+      all: records.length,
+      active: 0,
+      soon: 0,
+      expired: 0,
+      activated: 0,
+      undated: 0,
+      gemini: 0,
+      canva: 0,
+      other: 0,
+    };
     records.forEach((record) => {
       const s = statusOf(record, today);
       result[s] += 1;
+      const cat = (record.category || "").toLowerCase();
+      if (cat.includes("gemini")) result.gemini += 1;
+      else if (cat.includes("canva")) result.canva += 1;
+      else result.other += 1;
     });
     return result;
   }, [records, today]);
 
   const visibleRecords = useMemo(() => records.filter((record) => {
     const status = statusOf(record, today);
-    const matchesFilter = filter === "all" || status === filter;
-    const needle = search.trim().toLowerCase();
-    const matchesSearch = !needle || [record.title, record.source, record.url, record.notes].some((value) => value.toLowerCase().includes(needle));
-    return matchesFilter && matchesSearch;
-  }), [records, filter, search, today]);
+    const matchesStatus = filter === "all" || status === filter;
 
-  function openNewForm() {
+    const recordCategory = record.category || "Gemini Pro";
+    let matchesCategory = true;
+    if (categoryFilter === "Gemini Pro") matchesCategory = recordCategory.toLowerCase().includes("gemini");
+    else if (categoryFilter === "Canva Pro") matchesCategory = recordCategory.toLowerCase().includes("canva");
+    else if (categoryFilter === "Other") matchesCategory = !recordCategory.toLowerCase().includes("gemini") && !recordCategory.toLowerCase().includes("canva");
+    else if (categoryFilter !== "all") matchesCategory = recordCategory.toLowerCase() === categoryFilter.toLowerCase();
+
+    const needle = search.trim().toLowerCase();
+    const matchesSearch = !needle || [record.title, record.source, record.url, record.notes, record.category].some((value) => (value || "").toLowerCase().includes(needle));
+
+    return matchesStatus && matchesCategory && matchesSearch;
+  }), [records, filter, categoryFilter, search, today]);
+
+  function openNewForm(presetCategory = "Gemini Pro") {
     setEditingId(null);
-    setForm({ ...EMPTY_FORM, receivedAt: today || localDateKey() });
+    const defaultTitle = presetCategory === "Canva Pro" ? "Canva Pro · 12 months" : presetCategory === "Gemini Pro" ? "Gemini Pro · 18 months" : "Coupon Link Offer";
+    setForm({
+      ...EMPTY_FORM,
+      category: presetCategory,
+      title: defaultTitle,
+      receivedAt: today || localDateKey(),
+    });
     setFormError("");
     setFormOpen(true);
     setNotice("");
@@ -212,6 +260,7 @@ function CouponVault() {
     setEditingId(record.id);
     setForm({
       title: record.title,
+      category: record.category || "Gemini Pro",
       url: record.url,
       source: record.source,
       receivedAt: record.receivedAt,
@@ -246,7 +295,8 @@ function CouponVault() {
     const now = new Date().toISOString();
     const record: CouponRecord = {
       id: editingId ?? (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `coupon-${Date.now().toString(36)}`),
-      title: form.title.trim() || "Gemini Pro · 18 months",
+      title: form.title.trim() || `${form.category || "Coupon"} Offer`,
+      category: form.category.trim() || "Gemini Pro",
       url: form.url.trim(),
       source: form.source.trim(),
       receivedAt: form.receivedAt,
@@ -261,7 +311,7 @@ function CouponVault() {
       await refreshRecords();
       setFormOpen(false);
       setEditingId(null);
-      setNotice(editingId ? "Coupon details updated on this device." : "Coupon saved on this device.");
+      setNotice(editingId ? "Coupon details updated on this device." : `New ${record.category} coupon saved.`);
       setSearch("");
     } catch {
       setFormError("Could not save this coupon. Check browser storage settings and try again.");
@@ -330,9 +380,12 @@ function CouponVault() {
         if (!item || typeof item !== "object") throw new Error("A record in the backup is invalid.");
         const value = item as Partial<CouponRecord>;
         if (typeof value.url !== "string" || !validHttpUrl(value.url) || typeof value.id !== "string") throw new Error("A record has an invalid URL or ID.");
+        const titleStr = String(value.title ?? "Gemini Pro · 18 months").slice(0, 200);
+        const categoryStr = String(value.category ?? (titleStr.toLowerCase().includes("canva") ? "Canva Pro" : "Gemini Pro")).slice(0, 100);
         return {
           id: value.id.slice(0, 120),
-          title: String(value.title ?? "Gemini Pro · 18 months").slice(0, 200),
+          title: titleStr,
+          category: categoryStr,
           url: value.url.slice(0, 4000),
           source: String(value.source ?? "").slice(0, 200),
           receivedAt: String(value.receivedAt ?? "").slice(0, 10),
@@ -412,7 +465,7 @@ function CouponVault() {
             type="button"
             className="sidebar-cta-btn"
             onClick={() => {
-              openNewForm();
+              openNewForm(categoryFilter !== "all" ? categoryFilter : "Gemini Pro");
               setMobileMenuOpen(false);
             }}
           >
@@ -423,7 +476,53 @@ function CouponVault() {
 
         {/* Navigation Categories */}
         <nav className="sidebar-nav">
-          <div className="sidebar-section-label">CATEGORIES</div>
+          {/* LINK SERVICE CATEGORIES (NEW) */}
+          <div className="sidebar-section-label">SERVICES / CATEGORIES</div>
+
+          <button
+            type="button"
+            className={`nav-button ${categoryFilter === "all" ? "active" : ""}`}
+            onClick={() => { setCategoryFilter("all"); setMobileMenuOpen(false); }}
+          >
+            <span className="nav-icon"><Icon name="archive" size={16} /></span>
+            <span className="nav-text">All Services</span>
+            <span className="nav-count">{counts.all}</span>
+          </button>
+
+          <button
+            type="button"
+            className={`nav-button ${categoryFilter === "Gemini Pro" ? "active" : ""}`}
+            onClick={() => { setCategoryFilter("Gemini Pro"); setMobileMenuOpen(false); }}
+          >
+            <span className="nav-icon tone-blue"><Icon name="sparkles" size={16} /></span>
+            <span className="nav-text">Gemini Pro</span>
+            <span className="nav-count badge-blue">{counts.gemini}</span>
+          </button>
+
+          <button
+            type="button"
+            className={`nav-button ${categoryFilter === "Canva Pro" ? "active" : ""}`}
+            onClick={() => { setCategoryFilter("Canva Pro"); setMobileMenuOpen(false); }}
+          >
+            <span className="nav-icon tone-purple"><Icon name="palette" size={16} /></span>
+            <span className="nav-text">Canva Pro</span>
+            <span className="nav-count badge-purple">{counts.canva}</span>
+          </button>
+
+          {counts.other > 0 && (
+            <button
+              type="button"
+              className={`nav-button ${categoryFilter === "Other" ? "active" : ""}`}
+              onClick={() => { setCategoryFilter("Other"); setMobileMenuOpen(false); }}
+            >
+              <span className="nav-icon tone-muted"><Icon name="tag" size={16} /></span>
+              <span className="nav-text">Other Offers</span>
+              <span className="nav-count">{counts.other}</span>
+            </button>
+          )}
+
+          {/* STATUS FILTER */}
+          <div className="sidebar-section-label">STATUS FILTER</div>
 
           <button
             type="button"
@@ -431,7 +530,7 @@ function CouponVault() {
             onClick={() => { setFilter("all"); setMobileMenuOpen(false); }}
           >
             <span className="nav-icon"><Icon name="archive" size={16} /></span>
-            <span className="nav-text">All Coupons</span>
+            <span className="nav-text">All Statuses</span>
             <span className="nav-count">{counts.all}</span>
           </button>
 
@@ -507,7 +606,7 @@ function CouponVault() {
               <span className="storage-status-title">Private Local Archive</span>
             </div>
             <p className="storage-status-desc">
-              IndexedDB storage only. No cloud sync, completely device-bound.
+              IndexedDB + Supabase ready. No tracking, completely private.
             </p>
           </div>
         </div>
@@ -543,7 +642,7 @@ function CouponVault() {
               <input
                 ref={searchRef}
                 type="search"
-                placeholder="Search coupons, links, partners, notes..."
+                placeholder="Search Gemini, Canva, links, partners, notes..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 aria-label="Search archive"
@@ -575,7 +674,7 @@ function CouponVault() {
             <button
               type="button"
               className="topbar-button topbar-primary-btn"
-              onClick={openNewForm}
+              onClick={() => openNewForm(categoryFilter !== "all" ? categoryFilter : "Gemini Pro")}
             >
               <Icon name="plus" size={16} />
               <span className="button-text">Add Coupon</span>
@@ -601,18 +700,29 @@ function CouponVault() {
             <div className="hero-content">
               <div className="hero-eyebrow">
                 <span className="eyebrow-accent" />
-                <span>OFFLINE LINK VAULT</span>
+                <span>OFFLINE LINK VAULT · GEMINI & CANVA PRO</span>
               </div>
               <h1 className="hero-title">
-                Keep every coupon<br />
-                <span className="title-gradient">within reach.</span>
+                Manage Gemini & Canva<br />
+                <span className="title-gradient">coupon links with ease.</span>
               </h1>
               <p className="hero-description">
-                Store and organize your Gemini Pro 18-month coupon links, monitor deadlines, and export backups securely.
+                Organize your Gemini Pro 18-month and Canva Pro subscription promotion links, keep track of expiration dates, and backup securely.
               </p>
               <div className="hero-buttons">
-                <button type="button" className="hero-btn-primary" onClick={openNewForm}>
-                  <Icon name="plus" size={17} /> Add coupon link
+                <button
+                  type="button"
+                  className="hero-btn-primary"
+                  onClick={() => openNewForm("Gemini Pro")}
+                >
+                  <Icon name="sparkles" size={16} /> + Gemini Pro
+                </button>
+                <button
+                  type="button"
+                  className="hero-btn-purple"
+                  onClick={() => openNewForm("Canva Pro")}
+                >
+                  <Icon name="palette" size={16} /> + Canva Pro
                 </button>
                 <button type="button" className="hero-btn-secondary" onClick={() => importRef.current?.click()}>
                   <Icon name="upload" size={16} /> Import backup
@@ -623,21 +733,25 @@ function CouponVault() {
             <div className="hero-visual" aria-hidden="true">
               <div className="visual-glow-ring" />
               <div className="visual-card visual-card-back">
-                <span className="card-kicker">REDEMPTION ARCHIVE</span>
+                <div className="card-front-top">
+                  <span className="card-gem-icon purple"><Icon name="palette" size={15} /></span>
+                  <span className="card-status-badge"><span /> CANVA</span>
+                </div>
+                <div className="card-front-title">Canva Pro</div>
+                <div className="card-front-subtitle">12 Month VIP Access</div>
                 <span className="card-skeleton skeleton-sm" />
-                <span className="card-skeleton" />
                 <span className="card-skeleton skeleton-md" />
               </div>
               <div className="visual-card visual-card-front">
                 <div className="card-front-top">
-                  <span className="card-gem-icon"><Icon name="archive" size={15} /></span>
-                  <span className="card-status-badge"><span /> SECURED</span>
+                  <span className="card-gem-icon"><Icon name="sparkles" size={15} /></span>
+                  <span className="card-status-badge"><span /> GEMINI</span>
                 </div>
                 <div className="card-front-title">Gemini Pro</div>
-                <div className="card-front-subtitle">18 Month Offer</div>
+                <div className="card-front-subtitle">18 Month Extended Promo</div>
                 <div className="card-front-divider" />
                 <div className="card-front-bottom">
-                  <span><small>EXPIRES</small><b>- - -</b></span>
+                  <span><small>STATUS</small><b>ACTIVE</b></span>
                   <span className="card-cal-icon"><Icon name="calendar" size={18} /></span>
                 </div>
               </div>
@@ -653,11 +767,29 @@ function CouponVault() {
             <MetricCard
               label="Saved links"
               value={counts.all}
-              note="In this browser profile"
+              note="Total across all services"
               icon="archive"
               tone="blue"
-              onClick={() => setFilter("all")}
-              active={filter === "all"}
+              onClick={() => { setFilter("all"); setCategoryFilter("all"); }}
+              active={filter === "all" && categoryFilter === "all"}
+            />
+            <MetricCard
+              label="Gemini Pro"
+              value={counts.gemini}
+              note="18-Month promo links"
+              icon="sparkles"
+              tone="blue"
+              onClick={() => setCategoryFilter("Gemini Pro")}
+              active={categoryFilter === "Gemini Pro"}
+            />
+            <MetricCard
+              label="Canva Pro"
+              value={counts.canva}
+              note="Pro team & personal passes"
+              icon="palette"
+              tone="purple"
+              onClick={() => setCategoryFilter("Canva Pro")}
+              active={categoryFilter === "Canva Pro"}
             />
             <MetricCard
               label="Expiring soon"
@@ -668,24 +800,6 @@ function CouponVault() {
               onClick={() => setFilter("soon")}
               active={filter === "soon"}
             />
-            <MetricCard
-              label="Expired"
-              value={counts.expired}
-              note="Past redemption date"
-              icon="calendar"
-              tone="rose"
-              onClick={() => setFilter("expired")}
-              active={filter === "expired"}
-            />
-            <MetricCard
-              label="Activated"
-              value={counts.activated}
-              note="Marked as redeemed"
-              icon="check"
-              tone="green"
-              onClick={() => setFilter("activated")}
-              active={filter === "activated"}
-            />
           </section>
 
           {/* Add / Edit Form Panel */}
@@ -694,8 +808,8 @@ function CouponVault() {
               <div className="form-card-header">
                 <div>
                   <div className="form-eyebrow">ARCHIVE ENTRY</div>
-                  <h2 id="form-heading">{editingId ? "Edit coupon details" : "Save a new coupon link"}</h2>
-                  <p>Stored only in your browser's IndexedDB. Fields with * are required.</p>
+                  <h2 id="form-heading">{editingId ? "Edit coupon details" : `Save a new ${form.category} coupon`}</h2>
+                  <p>Stored locally in IndexedDB. Fields with * are required.</p>
                 </div>
                 <button
                   type="button"
@@ -708,13 +822,58 @@ function CouponVault() {
               </div>
 
               <form onSubmit={submitForm} className="coupon-entry-form">
+                {/* Category Selection Bar */}
+                <div className="category-selection-row span-full">
+                  <span className="selection-label">Select Service / Category:</span>
+                  <div className="category-chips-list">
+                    {CATEGORY_PRESETS.map((cat) => {
+                      const isSelected = form.category === cat || (cat === "Other" && !CATEGORY_PRESETS.slice(0, 3).includes(form.category as any));
+                      return (
+                        <button
+                          key={cat}
+                          type="button"
+                          className={`category-select-pill ${cat === "Gemini Pro" ? "pill-gemini" : cat === "Canva Pro" ? "pill-canva" : ""} ${isSelected ? "selected" : ""}`}
+                          onClick={() => {
+                            let newTitle = form.title;
+                            if (!editingId) {
+                              if (cat === "Gemini Pro") newTitle = "Gemini Pro · 18 months";
+                              else if (cat === "Canva Pro") newTitle = "Canva Pro · 12 months";
+                              else if (cat === "ChatGPT Plus") newTitle = "ChatGPT Plus · Promo";
+                            }
+                            setForm({ ...form, category: cat, title: newTitle });
+                          }}
+                        >
+                          {cat === "Gemini Pro" && <Icon name="sparkles" size={14} />}
+                          {cat === "Canva Pro" && <Icon name="palette" size={14} />}
+                          {cat === "ChatGPT Plus" && <Icon name="tag" size={14} />}
+                          <span>{cat}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Custom Category Input if "Other" or custom */}
+                {!["Gemini Pro", "Canva Pro", "ChatGPT Plus"].includes(form.category) && (
+                  <label className="input-group span-full">
+                    <span>Custom Service Name *</span>
+                    <input
+                      value={form.category === "Other" ? "" : form.category}
+                      maxLength={100}
+                      onChange={(e) => setForm({ ...form, category: e.target.value || "Other" })}
+                      placeholder="e.g. Adobe Creative Cloud, Notion Plus, Spotify"
+                      required
+                    />
+                  </label>
+                )}
+
                 <label className="input-group span-full">
-                  <span>Label / Title *</span>
+                  <span>Coupon Label / Title *</span>
                   <input
                     value={form.title}
                     maxLength={200}
                     onChange={(e) => setForm({ ...form, title: e.target.value })}
-                    placeholder="e.g. Gemini Pro · 18 months"
+                    placeholder={form.category === "Canva Pro" ? "Canva Pro · 12 months" : "Gemini Pro · 18 months"}
                     required
                   />
                 </label>
@@ -724,7 +883,7 @@ function CouponVault() {
                   <input
                     value={form.url}
                     onChange={(e) => setForm({ ...form, url: e.target.value })}
-                    placeholder="https://..."
+                    placeholder={form.category === "Canva Pro" ? "https://www.canva.com/brand/join?token=..." : "https://one.google.com/promo/..."}
                     type="url"
                     inputMode="url"
                     autoComplete="url"
@@ -738,7 +897,7 @@ function CouponVault() {
                     value={form.source}
                     maxLength={200}
                     onChange={(e) => setForm({ ...form, source: e.target.value })}
-                    placeholder="e.g. Google One, Samsung, Partner promotion"
+                    placeholder="e.g. Google One, Samsung Galaxy, Student Pack"
                   />
                 </label>
 
@@ -806,20 +965,81 @@ function CouponVault() {
             <div className="archive-top-bar">
               <div>
                 <div className="archive-eyebrow">YOUR COLLECTION</div>
-                <h2 className="archive-title">Saved Coupon Links</h2>
-                <p className="archive-subtitle">Search, filter, copy, and manage your redemption links.</p>
+                <h2 className="archive-title">
+                  {categoryFilter === "all" ? "Saved Coupon Links" : `${categoryFilter} Coupons`}
+                </h2>
+                <p className="archive-subtitle">
+                  {categoryFilter === "all"
+                    ? "Search, filter, and manage your Gemini Pro, Canva Pro, and other vouchers."
+                    : `Showing coupons in the ${categoryFilter} category.`}
+                </p>
               </div>
-              <button
-                type="button"
-                className="add-coupon-secondary"
-                onClick={openNewForm}
-              >
-                <Icon name="plus" size={16} />
-                <span>Add coupon</span>
-              </button>
+
+              <div className="archive-top-actions">
+                <button
+                  type="button"
+                  className="add-coupon-secondary"
+                  onClick={() => openNewForm("Gemini Pro")}
+                >
+                  <Icon name="sparkles" size={15} />
+                  <span>+ Gemini</span>
+                </button>
+                <button
+                  type="button"
+                  className="add-coupon-secondary canva-accent"
+                  onClick={() => openNewForm("Canva Pro")}
+                >
+                  <Icon name="palette" size={15} />
+                  <span>+ Canva</span>
+                </button>
+              </div>
             </div>
 
-            {/* Filter pills bar */}
+            {/* Category Filter Tabs Bar (NEW) */}
+            <div className="service-tabs-bar" aria-label="Service categories">
+              <button
+                type="button"
+                className={`service-tab-btn ${categoryFilter === "all" ? "active" : ""}`}
+                onClick={() => setCategoryFilter("all")}
+              >
+                <span>All Services</span>
+                <span className="tab-count">{counts.all}</span>
+              </button>
+
+              <button
+                type="button"
+                className={`service-tab-btn tab-gemini ${categoryFilter === "Gemini Pro" ? "active" : ""}`}
+                onClick={() => setCategoryFilter("Gemini Pro")}
+              >
+                <Icon name="sparkles" size={14} />
+                <span>Gemini Pro</span>
+                <span className="tab-count count-blue">{counts.gemini}</span>
+              </button>
+
+              <button
+                type="button"
+                className={`service-tab-btn tab-canva ${categoryFilter === "Canva Pro" ? "active" : ""}`}
+                onClick={() => setCategoryFilter("Canva Pro")}
+              >
+                <Icon name="palette" size={14} />
+                <span>Canva Pro</span>
+                <span className="tab-count count-purple">{counts.canva}</span>
+              </button>
+
+              {counts.other > 0 && (
+                <button
+                  type="button"
+                  className={`service-tab-btn ${categoryFilter === "Other" ? "active" : ""}`}
+                  onClick={() => setCategoryFilter("Other")}
+                >
+                  <Icon name="tag" size={14} />
+                  <span>Other</span>
+                  <span className="tab-count">{counts.other}</span>
+                </button>
+              )}
+            </div>
+
+            {/* Status filters strip */}
             <div className="filters-strip" aria-label="Filter status">
               {(["all", "active", "soon", "expired", "activated"] as const).map((item) => (
                 <button
@@ -828,7 +1048,7 @@ function CouponVault() {
                   className={`filter-pill-btn ${filter === item ? "selected" : ""}`}
                   onClick={() => setFilter(item)}
                 >
-                  <span>{item === "all" ? "All links" : STATUS_LABEL[item as Status]}</span>
+                  <span>{item === "all" ? "All statuses" : STATUS_LABEL[item as Status]}</span>
                   <span className="pill-number">{item === "all" ? counts.all : counts[item]}</span>
                 </button>
               ))}
@@ -844,20 +1064,28 @@ function CouponVault() {
             ) : visibleRecords.length === 0 ? (
               <div className="empty-archive-state">
                 <span className="empty-state-icon">
-                  <Icon name={search || filter !== "all" ? "search" : "archive"} size={26} />
+                  <Icon name={search || filter !== "all" || categoryFilter !== "all" ? "search" : "archive"} size={26} />
                 </span>
-                <h3>{records.length ? "No matching coupons found" : "Your archive is empty"}</h3>
+                <h3>
+                  {records.length
+                    ? `No matching ${categoryFilter !== "all" ? categoryFilter : ""} coupons found`
+                    : "Your archive is empty"}
+                </h3>
                 <p>
                   {records.length
-                    ? "Try adjusting your search terms or selecting a different status filter."
-                    : "Add your first coupon link to track its activation deadline in one secure place."}
+                    ? "Try adjusting your search terms, status filters, or service categories."
+                    : "Add your first Gemini Pro or Canva Pro coupon link to get started."}
                 </p>
-                {!records.length && (
-                  <button type="button" className="empty-cta-btn" onClick={openNewForm}>
-                    <Icon name="plus" size={16} />
-                    <span>Add your first coupon</span>
+                <div className="empty-actions-row">
+                  <button type="button" className="empty-cta-btn" onClick={() => openNewForm("Gemini Pro")}>
+                    <Icon name="sparkles" size={16} />
+                    <span>Add Gemini Pro</span>
                   </button>
-                )}
+                  <button type="button" className="empty-cta-btn btn-canva-purple" onClick={() => openNewForm("Canva Pro")}>
+                    <Icon name="palette" size={16} />
+                    <span>Add Canva Pro</span>
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="coupon-cards-list">
@@ -871,6 +1099,7 @@ function CouponVault() {
                     onEdit={editRecord}
                     onToggle={toggleActivated}
                     onDelete={removeRecord}
+                    onSelectCategory={(cat) => setCategoryFilter(cat)}
                   />
                 ))}
               </div>
@@ -888,14 +1117,14 @@ function CouponVault() {
               <span className="info-card-icon"><Icon name="shield" size={20} /></span>
               <div>
                 <h3>Private by design</h3>
-                <p>Your coupon links are saved exclusively in IndexedDB inside this browser profile. Nothing is uploaded to any server. Export a backup before resetting browser cookies or switching computers.</p>
+                <p>Your coupon links are saved exclusively in IndexedDB inside this browser profile and can be synced to your Supabase PostgreSQL database anytime.</p>
               </div>
             </div>
             <div className="info-card info-card-amber">
               <span className="info-card-icon amber-icon"><Icon name="clock" size={20} /></span>
               <div>
                 <h3>Expiry estimation</h3>
-                <p>Statuses are calculated from the expiration dates you enter. This tool cannot verify redemption status with external Google APIs or extend an expired link.</p>
+                <p>Statuses are calculated from the expiration dates you enter. This tool cannot verify redemption status with external Google/Canva APIs or extend an expired link.</p>
               </div>
             </div>
           </section>
@@ -906,7 +1135,7 @@ function CouponVault() {
               <span className="brand-glow-mark sm"><Icon name="archive" size={16} /></span>
               <span>coupon<span className="brand-accent">vault</span></span>
             </div>
-            <span className="footer-tagline">Personal & Private Link Archive · 100% Offline</span>
+            <span className="footer-tagline">Gemini Pro & Canva Pro Link Archive · Supabase PostgreSQL Ready</span>
             <a href="#top" className="back-to-top-link">
               <span>Back to top</span>
               <Icon name="arrow" size={14} />
@@ -931,7 +1160,7 @@ function MetricCard({
   value: number;
   note: string;
   icon: string;
-  tone: "blue" | "gold" | "rose" | "green";
+  tone: "blue" | "gold" | "rose" | "green" | "purple";
   onClick?: () => void;
   active?: boolean;
 }) {
@@ -962,6 +1191,7 @@ function CouponCard({
   onEdit,
   onToggle,
   onDelete,
+  onSelectCategory,
 }: {
   record: CouponRecord;
   status: Status;
@@ -970,16 +1200,31 @@ function CouponCard({
   onEdit: (record: CouponRecord) => void;
   onToggle: (record: CouponRecord) => void;
   onDelete: (record: CouponRecord) => void;
+  onSelectCategory?: (category: string) => void;
 }) {
   const statusClass = `status-pill-${status}`;
   const days = record.expiresAt ? daysUntil(record.expiresAt, localDateKey()) : null;
+  const isCanva = (record.category || "").toLowerCase().includes("canva") || record.title.toLowerCase().includes("canva");
+  const isGemini = (record.category || "").toLowerCase().includes("gemini") || record.title.toLowerCase().includes("gemini");
 
   return (
     <article className="coupon-card-item">
       <div className="coupon-item-index">{String(index + 1).padStart(2, "0")}</div>
       <div className="coupon-item-body">
         <div className="coupon-item-title-row">
+          {/* Branded Category Pill */}
+          <button
+            type="button"
+            className={`service-badge ${isCanva ? "service-canva" : isGemini ? "service-gemini" : "service-other"}`}
+            onClick={() => onSelectCategory?.(record.category || (isCanva ? "Canva Pro" : "Gemini Pro"))}
+            title={`Filter by ${record.category || "category"}`}
+          >
+            {isCanva ? <Icon name="palette" size={13} /> : isGemini ? <Icon name="sparkles" size={13} /> : <Icon name="tag" size={13} />}
+            <span>{record.category || (isCanva ? "Canva Pro" : "Gemini Pro")}</span>
+          </button>
+
           <h3 className="coupon-title-text">{record.title}</h3>
+
           <span className={`status-pill ${statusClass}`}>
             <span className="status-dot" />
             {STATUS_LABEL[status]}

@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS coupons (
   source VARCHAR(255) DEFAULT '',
   received_at VARCHAR(20) DEFAULT '',
   expires_at VARCHAR(20) DEFAULT '',
+  category VARCHAR(100) DEFAULT 'Gemini Pro',
   notes TEXT DEFAULT '',
   activated_at VARCHAR(40) DEFAULT '',
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -15,6 +16,7 @@ CREATE TABLE IF NOT EXISTS coupons (
 );
 
 -- Indexes for fast querying & filtering
+CREATE INDEX IF NOT EXISTS idx_coupons_category ON coupons (category);
 CREATE INDEX IF NOT EXISTS idx_coupons_expires_at ON coupons (expires_at);
 CREATE INDEX IF NOT EXISTS idx_coupons_activated_at ON coupons (activated_at);
 CREATE INDEX IF NOT EXISTS idx_coupons_created_at ON coupons (created_at);

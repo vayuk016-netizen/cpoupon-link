@@ -1747,3 +1747,232 @@ a {
     gap: 8px;
   }
 }
+
+/* =========================================================
+   CATEGORY SPECIFIC STYLES (GEMINI PRO & CANVA PRO)
+========================================================= */
+
+.nav-icon.tone-purple { color: #c084fc; }
+.badge-purple { background: rgba(192, 132, 252, 0.15); color: #c084fc; }
+
+.hero-btn-purple {
+  height: 42px;
+  padding: 0 18px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #06b6d4 0%, #8b5cf6 100%);
+  color: #fff;
+  font-weight: 750;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 18px rgba(139, 92, 246, 0.35);
+  transition: all 0.15s ease;
+}
+
+.hero-btn-purple:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 22px rgba(139, 92, 246, 0.5);
+}
+
+.visual-card-back .card-gem-icon.purple {
+  background: rgba(139, 92, 246, 0.25);
+  color: #c084fc;
+}
+
+.metric-tone-purple.metric-active {
+  border-color: #a855f7;
+  background: rgba(168, 85, 247, 0.12);
+  box-shadow: 0 0 20px rgba(168, 85, 247, 0.25);
+}
+
+.metric-icon-box.tone-purple {
+  background: rgba(168, 85, 247, 0.15);
+  color: #c084fc;
+}
+
+/* Service Tabs Bar */
+.service-tabs-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  padding: 4px;
+  border-radius: 12px;
+  background: rgba(13, 19, 34, 0.7);
+  border: 1px solid var(--border-subtle);
+  width: fit-content;
+}
+
+.service-tab-btn {
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: transparent;
+  transition: all 0.15s ease;
+}
+
+.service-tab-btn:hover {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.service-tab-btn.active {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-main);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.service-tab-btn.tab-gemini.active {
+  background: rgba(56, 189, 248, 0.16);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.service-tab-btn.tab-canva.active {
+  background: rgba(168, 85, 247, 0.18);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.35);
+}
+
+.tab-count {
+  font-size: 10px;
+  font-family: ui-monospace, monospace;
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.count-blue { background: rgba(56, 189, 248, 0.15); color: #38bdf8; }
+.count-purple { background: rgba(168, 85, 247, 0.15); color: #c084fc; }
+
+/* Category Selection Pills in Form */
+.category-selection-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.selection-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-body);
+}
+
+.category-chips-list {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.category-select-pill {
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  transition: all 0.15s ease;
+}
+
+.category-select-pill:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-main);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.category-select-pill.selected {
+  background: rgba(99, 102, 241, 0.2);
+  border-color: var(--accent-indigo);
+  color: #fff;
+  box-shadow: 0 0 14px rgba(99, 102, 241, 0.3);
+}
+
+.category-select-pill.pill-gemini.selected {
+  background: rgba(56, 189, 248, 0.18);
+  border-color: #38bdf8;
+  color: #38bdf8;
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.25);
+}
+
+.category-select-pill.pill-canva.selected {
+  background: rgba(168, 85, 247, 0.2);
+  border-color: #a855f7;
+  color: #c084fc;
+  box-shadow: 0 0 14px rgba(168, 85, 247, 0.3);
+}
+
+/* Service Badge on Coupon Card */
+.service-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 750;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.service-badge:hover {
+  transform: translateY(-1px);
+}
+
+.service-gemini {
+  background: rgba(56, 189, 248, 0.12);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.28);
+}
+
+.service-canva {
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.14) 0%, rgba(168, 85, 247, 0.18) 100%);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.35);
+}
+
+.service-other {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-body);
+  border: 1px solid var(--border-subtle);
+}
+
+.archive-top-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.add-coupon-secondary.canva-accent {
+  background: rgba(168, 85, 247, 0.12);
+  border-color: rgba(168, 85, 247, 0.3);
+  color: #c084fc;
+}
+
+.add-coupon-secondary.canva-accent:hover {
+  background: rgba(168, 85, 247, 0.22);
+}
+
+.empty-actions-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.btn-canva-purple {
+  background: linear-gradient(135deg, #06b6d4 0%, #8b5cf6 100%) !important;
+  box-shadow: 0 4px 14px rgba(139, 92, 246, 0.35) !important;
+}
+
