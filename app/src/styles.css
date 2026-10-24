@@ -1976,3 +1976,186 @@ a {
   box-shadow: 0 4px 14px rgba(139, 92, 246, 0.35) !important;
 }
 
+/* =========================================================
+   DEDICATED CATEGORY GROUP BLOCKS (GEMINI PRO & CANVA PRO)
+========================================================= */
+
+.category-sections-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.category-group-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 18px;
+  padding: 24px;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(12px);
+}
+
+.category-group-card.gemini-group {
+  border-left: 4px solid var(--accent-blue);
+  background: radial-gradient(circle at 0% 0%, rgba(56, 189, 248, 0.08) 0%, rgba(17, 24, 39, 0.8) 60%);
+}
+
+.category-group-card.canva-group {
+  border-left: 4px solid #c084fc;
+  background: radial-gradient(circle at 0% 0%, rgba(192, 132, 252, 0.08) 0%, rgba(17, 24, 39, 0.8) 60%);
+}
+
+.category-group-card.other-group {
+  border-left: 4px solid var(--text-dim);
+  background: rgba(17, 24, 39, 0.6);
+}
+
+.category-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.group-title-side {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.group-icon-gem {
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.group-icon-gem.gemini-gem {
+  background: rgba(56, 189, 248, 0.16);
+  color: var(--accent-blue);
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.2);
+}
+
+.group-icon-gem.canva-gem {
+  background: rgba(192, 132, 252, 0.16);
+  color: #c084fc;
+  box-shadow: 0 0 16px rgba(192, 132, 252, 0.2);
+}
+
+.group-icon-gem.other-gem {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-body);
+}
+
+.group-name {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+  margin: 0 0 3px;
+  color: var(--text-main);
+}
+
+.group-badge {
+  font-size: 11px;
+  font-family: ui-monospace, monospace;
+  padding: 2px 7px;
+  border-radius: 5px;
+}
+
+.badge-gemini {
+  background: rgba(56, 189, 248, 0.12);
+  color: var(--accent-blue);
+}
+
+.badge-canva {
+  background: rgba(192, 132, 252, 0.14);
+  color: #c084fc;
+}
+
+.badge-other {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-dim);
+}
+
+.group-add-btn {
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 750;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.btn-gemini-add {
+  background: rgba(56, 189, 248, 0.14);
+  color: var(--accent-blue);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.btn-gemini-add:hover {
+  background: rgba(56, 189, 248, 0.24);
+  transform: translateY(-1px);
+}
+
+.btn-canva-add {
+  background: rgba(192, 132, 252, 0.14);
+  color: #c084fc;
+  border: 1px solid rgba(192, 132, 252, 0.3);
+}
+
+.btn-canva-add:hover {
+  background: rgba(192, 132, 252, 0.24);
+  transform: translateY(-1px);
+}
+
+.btn-other-add {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-body);
+  border: 1px solid var(--border-subtle);
+}
+
+.btn-other-add:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.group-empty-placeholder {
+  padding: 24px 16px;
+  border: 1px dashed var(--border-subtle);
+  border-radius: 12px;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.group-empty-placeholder p {
+  color: var(--text-dim);
+  font-size: 13px;
+  margin: 0 0 8px;
+}
+
+.group-inline-add {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent-blue);
+  background: none;
+  cursor: pointer;
+}
+
+.group-inline-add.purple {
+  color: #c084fc;
+}
+
+.group-inline-add:hover {
+  text-decoration: underline;
+}
+
+

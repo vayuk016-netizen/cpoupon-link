@@ -242,6 +242,26 @@ function CouponVault() {
     return matchesStatus && matchesCategory && matchesSearch;
   }), [records, filter, categoryFilter, search, today]);
 
+  const groupedRecords = useMemo(() => {
+    const gemini: CouponRecord[] = [];
+    const canva: CouponRecord[] = [];
+    const other: CouponRecord[] = [];
+
+    visibleRecords.forEach((record) => {
+      const cat = (record.category || "").toLowerCase();
+      const title = (record.title || "").toLowerCase();
+      if (cat.includes("canva") || title.includes("canva")) {
+        canva.push(record);
+      } else if (cat.includes("gemini") || title.includes("gemini")) {
+        gemini.push(record);
+      } else {
+        other.push(record);
+      }
+    });
+
+    return { gemini, canva, other };
+  }, [visibleRecords]);
+
   function openNewForm(presetCategory = "Gemini Pro") {
     setEditingId(null);
     const defaultTitle = presetCategory === "Canva Pro" ? "Canva Pro · 12 months" : presetCategory === "Gemini Pro" ? "Gemini Pro · 18 months" : "Coupon Link Offer";
@@ -1088,20 +1108,147 @@ function CouponVault() {
                 </div>
               </div>
             ) : (
-              <div className="coupon-cards-list">
-                {visibleRecords.map((record, index) => (
-                  <CouponCard
-                    key={record.id}
-                    record={record}
-                    status={statusOf(record, today)}
-                    index={index}
-                    onCopy={copyLink}
-                    onEdit={editRecord}
-                    onToggle={toggleActivated}
-                    onDelete={removeRecord}
-                    onSelectCategory={(cat) => setCategoryFilter(cat)}
-                  />
-                ))}
+              <div className="category-sections-wrapper">
+                {/* 1. GEMINI PRO SECTION */}
+                {(categoryFilter === "all" || categoryFilter === "Gemini Pro") && (
+                  <section className="category-group-card gemini-group" aria-labelledby="gemini-heading">
+                    <div className="category-group-header">
+                      <div className="group-title-side">
+                        <span className="group-icon-gem gemini-gem"><Icon name="sparkles" size={18} /></span>
+                        <div>
+                          <h3 id="gemini-heading" className="group-name">Gemini Pro Coupons</h3>
+                          <span className="group-badge badge-gemini">{groupedRecords.gemini.length} {groupedRecords.gemini.length === 1 ? "voucher" : "vouchers"}</span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="group-add-btn btn-gemini-add"
+                        onClick={() => openNewForm("Gemini Pro")}
+                      >
+                        <Icon name="plus" size={14} />
+                        <span>+ Add Gemini</span>
+                      </button>
+                    </div>
+
+                    {groupedRecords.gemini.length === 0 ? (
+                      <div className="group-empty-placeholder">
+                        <p>No Gemini Pro coupons found matching current filters.</p>
+                        <button type="button" className="group-inline-add" onClick={() => openNewForm("Gemini Pro")}>
+                          + Add Gemini Pro link
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="coupon-cards-list">
+                        {groupedRecords.gemini.map((record, index) => (
+                          <CouponCard
+                            key={record.id}
+                            record={record}
+                            status={statusOf(record, today)}
+                            index={index}
+                            onCopy={copyLink}
+                            onEdit={editRecord}
+                            onToggle={toggleActivated}
+                            onDelete={removeRecord}
+                            onSelectCategory={(cat) => setCategoryFilter(cat)}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </section>
+                )}
+
+                {/* 2. CANVA PRO SECTION */}
+                {(categoryFilter === "all" || categoryFilter === "Canva Pro") && (
+                  <section className="category-group-card canva-group" aria-labelledby="canva-heading">
+                    <div className="category-group-header">
+                      <div className="group-title-side">
+                        <span className="group-icon-gem canva-gem"><Icon name="palette" size={18} /></span>
+                        <div>
+                          <h3 id="canva-heading" className="group-name">Canva Pro Coupons</h3>
+                          <span className="group-badge badge-canva">{groupedRecords.canva.length} {groupedRecords.canva.length === 1 ? "voucher" : "vouchers"}</span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="group-add-btn btn-canva-add"
+                        onClick={() => openNewForm("Canva Pro")}
+                      >
+                        <Icon name="plus" size={14} />
+                        <span>+ Add Canva</span>
+                      </button>
+                    </div>
+
+                    {groupedRecords.canva.length === 0 ? (
+                      <div className="group-empty-placeholder">
+                        <p>No Canva Pro coupons found matching current filters.</p>
+                        <button type="button" className="group-inline-add purple" onClick={() => openNewForm("Canva Pro")}>
+                          + Add Canva Pro link
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="coupon-cards-list">
+                        {groupedRecords.canva.map((record, index) => (
+                          <CouponCard
+                            key={record.id}
+                            record={record}
+                            status={statusOf(record, today)}
+                            index={index}
+                            onCopy={copyLink}
+                            onEdit={editRecord}
+                            onToggle={toggleActivated}
+                            onDelete={removeRecord}
+                            onSelectCategory={(cat) => setCategoryFilter(cat)}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </section>
+                )}
+
+                {/* 3. OTHER OFFERS SECTION */}
+                {(categoryFilter === "all" || categoryFilter === "Other") && (groupedRecords.other.length > 0 || categoryFilter === "Other") && (
+                  <section className="category-group-card other-group" aria-labelledby="other-heading">
+                    <div className="category-group-header">
+                      <div className="group-title-side">
+                        <span className="group-icon-gem other-gem"><Icon name="tag" size={18} /></span>
+                        <div>
+                          <h3 id="other-heading" className="group-name">Other Vouchers & Promos</h3>
+                          <span className="group-badge badge-other">{groupedRecords.other.length} {groupedRecords.other.length === 1 ? "voucher" : "vouchers"}</span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="group-add-btn btn-other-add"
+                        onClick={() => openNewForm("Other")}
+                      >
+                        <Icon name="plus" size={14} />
+                        <span>+ Add Offer</span>
+                      </button>
+                    </div>
+
+                    {groupedRecords.other.length === 0 ? (
+                      <div className="group-empty-placeholder">
+                        <p>No other promotional coupons matching current filters.</p>
+                      </div>
+                    ) : (
+                      <div className="coupon-cards-list">
+                        {groupedRecords.other.map((record, index) => (
+                          <CouponCard
+                            key={record.id}
+                            record={record}
+                            status={statusOf(record, today)}
+                            index={index}
+                            onCopy={copyLink}
+                            onEdit={editRecord}
+                            onToggle={toggleActivated}
+                            onDelete={removeRecord}
+                            onSelectCategory={(cat) => setCategoryFilter(cat)}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </section>
+                )}
               </div>
             )}
 
