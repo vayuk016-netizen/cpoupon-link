@@ -29,7 +29,7 @@ function buildHead(meta: AppMeta) {
   ], links: [{ rel: "stylesheet", href: appCss }, ...(favicon ? [{ rel: "icon", href: favicon }] : [])] };
 }
 function NotFoundComponent() { return <main className="not-found"><span className="brand-mark">⌁</span><h1>Page not found</h1><p>The page you're looking for doesn't exist.</p><a className="button not-found-return-button" href="/">Return to archive</a></main>; }
-function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
+function ErrorComponent({ error, reset }: { error: any; reset: () => void }) {
   const router = useRouter();
   useEffect(() => { reportHiggsfieldError(error, { boundary: "coupon_vault_root_error" }); }, [error]);
   return <main className="not-found"><span className="brand-mark">!</span><h1>This page didn't load</h1><p>Something went wrong. You can try refreshing the page.</p><button className="button error-retry-button" onClick={() => { router.invalidate(); reset(); }}>Try again</button></main>;
@@ -42,7 +42,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   errorComponent: ErrorComponent,
 });
 function RootShell({ children }: { children: ReactNode }) {
-  return <html lang="en" className="dark" style={{ colorScheme: "dark" }}><head><HeadContent /></head><body>{children}<Scripts /></body></html>;
+  return <html lang="en"><head><HeadContent /></head><body>{children}<Scripts /></body></html>;
 }
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();

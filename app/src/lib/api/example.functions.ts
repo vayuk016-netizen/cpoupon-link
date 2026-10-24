@@ -5,7 +5,7 @@ import { bindings } from "../bindings.server";
 
 // Example server function that touches the app's D1 binding (server-only).
 export const getGreeting = createServerFn({ method: "POST" })
-  .inputValidator(z.object({ name: z.string().min(1) }))
+  .validator((data: { name: string }) => data)
   .handler(async ({ data }) => {
     const { DB, HF_ENV } = bindings();
     let count = 0;
