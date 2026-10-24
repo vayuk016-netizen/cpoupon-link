@@ -75,17 +75,41 @@ function statusOf(record: CouponRecord, today: string): Status {
   return "active";
 }
 
-const STATUS_LABEL: Record<Status, string> = { active: "Active", soon: "Expiring soon", expired: "Expired", activated: "Activated", undated: "No expiry date" };
+const STATUS_LABEL: Record<Status, string> = {
+  active: "Active",
+  soon: "Expiring soon",
+  expired: "Expired",
+  activated: "Activated",
+  undated: "No expiry date",
+};
+
 function formatDate(date: string): string {
   if (!date) return "Not set";
   const parsed = new Date(`${date}T12:00:00`);
   return Number.isNaN(parsed.getTime()) ? date : parsed.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 }
+
 function validHttpUrl(value: string): boolean {
-  try { const url = new URL(value); return url.protocol === "https:" || url.protocol === "http:"; } catch { return false; }
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:";
+  } catch {
+    return false;
+  }
 }
+
 function Icon({ name, size = 18 }: { name: string; size?: number }) {
-  const common = { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, "aria-hidden": true as const };
+  const common = {
+    width: size,
+    height: size,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.8,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    "aria-hidden": true as const,
+  };
   const paths: Record<string, ReactNode> = {
     archive: <><rect x="3.5" y="4" width="17" height="4" rx="1"/><path d="M5 8v11.5h14V8M9 12h6"/></>,
     plus: <><path d="M12 5v14M5 12h14"/></>,
@@ -101,6 +125,11 @@ function Icon({ name, size = 18 }: { name: string; size?: number }) {
     close: <><path d="m6 6 12 12M18 6 6 18"/></>,
     arrow: <><path d="M5 12h14M13 6l6 6-6 6"/></>,
     clock: <><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 2"/></>,
+    menu: <><path d="M4 6h16M4 12h16M4 18h16"/></>,
+    panelLeft: <><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></>,
+    sparkles: <><path d="m12 3 1.9 5.7a1 1 0 0 0 .64.64L20.2 11.2l-5.66 1.86a1 1 0 0 0-.64.64L12 19.4l-1.9-5.7a1 1 0 0 0-.64-.64L3.8 11.2l5.66-1.86a1 1 0 0 0 .64-.64L12 3Z"/></>,
+    tag: <><path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/><circle cx="7" cy="7" r="1.5"/></>,
+    database: <><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/></>,
   };
   return <svg {...common}>{paths[name] ?? paths.archive}</svg>;
 }
@@ -118,6 +147,8 @@ function CouponVault() {
   const [filter, setFilter] = useState<"all" | Status>("all");
   const [notice, setNotice] = useState("");
   const [formError, setFormError] = useState("");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -127,10 +158,18 @@ function CouponVault() {
         event.preventDefault();
         searchRef.current?.focus();
       }
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "b") {
+        event.preventDefault();
+        setSidebarCollapsed((prev) => !prev);
+      }
+      if (event.key === "Escape") {
+        if (formOpen) setFormOpen(false);
+        if (mobileMenuOpen) setMobileMenuOpen(false);
+      }
     };
     window.addEventListener("keydown", handleShortcut);
     return () => window.removeEventListener("keydown", handleShortcut);
-  }, []);
+  }, [formOpen, mobileMenuOpen]);
 
   useEffect(() => {
     setToday(localDateKey());
@@ -146,7 +185,10 @@ function CouponVault() {
 
   const counts = useMemo(() => {
     const result = { all: records.length, active: 0, soon: 0, expired: 0, activated: 0, undated: 0 };
-    records.forEach((record) => { result[statusOf(record, today)] += 1; });
+    records.forEach((record) => {
+      const s = statusOf(record, today);
+      result[s] += 1;
+    });
     return result;
   }, [records, today]);
 
@@ -168,7 +210,14 @@ function CouponVault() {
 
   function editRecord(record: CouponRecord) {
     setEditingId(record.id);
-    setForm({ title: record.title, url: record.url, source: record.source, receivedAt: record.receivedAt, expiresAt: record.expiresAt, notes: record.notes });
+    setForm({
+      title: record.title,
+      url: record.url,
+      source: record.source,
+      receivedAt: record.receivedAt,
+      expiresAt: record.expiresAt,
+      notes: record.notes,
+    });
     setFormError("");
     setFormOpen(true);
     setNotice("");
@@ -181,17 +230,31 @@ function CouponVault() {
   async function submitForm(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFormError("");
-    if (!db) { setFormError("Local storage is not ready yet."); return; }
-    if (!validHttpUrl(form.url.trim())) { setFormError("Enter a complete link beginning with https:// or http://."); return; }
-    if (form.expiresAt && form.receivedAt && form.expiresAt < form.receivedAt) { setFormError("Expiry date should be the same as or later than the received date."); return; }
+    if (!db) {
+      setFormError("Local storage is not ready yet.");
+      return;
+    }
+    if (!validHttpUrl(form.url.trim())) {
+      setFormError("Enter a complete link beginning with https:// or http://.");
+      return;
+    }
+    if (form.expiresAt && form.receivedAt && form.expiresAt < form.receivedAt) {
+      setFormError("Expiry date should be the same as or later than the received date.");
+      return;
+    }
     const existing = editingId ? records.find((record) => record.id === editingId) : undefined;
     const now = new Date().toISOString();
     const record: CouponRecord = {
       id: editingId ?? (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `coupon-${Date.now().toString(36)}`),
       title: form.title.trim() || "Gemini Pro · 18 months",
-      url: form.url.trim(), source: form.source.trim(), receivedAt: form.receivedAt,
-      expiresAt: form.expiresAt, notes: form.notes.trim(), activatedAt: existing?.activatedAt ?? "",
-      createdAt: existing?.createdAt ?? now, updatedAt: now,
+      url: form.url.trim(),
+      source: form.source.trim(),
+      receivedAt: form.receivedAt,
+      expiresAt: form.expiresAt,
+      notes: form.notes.trim(),
+      activatedAt: existing?.activatedAt ?? "",
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
     };
     try {
       await saveRecord(db, record);
@@ -199,36 +262,60 @@ function CouponVault() {
       setFormOpen(false);
       setEditingId(null);
       setNotice(editingId ? "Coupon details updated on this device." : "Coupon saved on this device.");
-      setSearch(""); setFilter("all");
-    } catch { setFormError("Could not save this coupon. Check browser storage settings and try again."); }
+      setSearch("");
+    } catch {
+      setFormError("Could not save this coupon. Check browser storage settings and try again.");
+    }
   }
 
   async function toggleActivated(record: CouponRecord) {
     if (!db) return;
-    const updated = { ...record, activatedAt: record.activatedAt ? "" : new Date().toISOString(), updatedAt: new Date().toISOString() };
-    try { await saveRecord(db, updated); await refreshRecords(); setNotice(updated.activatedAt ? "Marked as activated." : "Activation mark removed."); }
-    catch { setNotice("Could not update the record. Please try again."); }
+    const updated = {
+      ...record,
+      activatedAt: record.activatedAt ? "" : new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    try {
+      await saveRecord(db, updated);
+      await refreshRecords();
+      setNotice(updated.activatedAt ? "Marked as activated." : "Activation mark removed.");
+    } catch {
+      setNotice("Could not update the record. Please try again.");
+    }
   }
 
   async function removeRecord(record: CouponRecord) {
     if (!db || !window.confirm(`Delete “${record.title}” from this device? This cannot be undone unless you have a backup.`)) return;
-    try { await deleteRecord(db, record.id); await refreshRecords(); setNotice("Coupon deleted from this device."); }
-    catch { setNotice("Could not delete the record. Please try again."); }
+    try {
+      await deleteRecord(db, record.id);
+      await refreshRecords();
+      setNotice("Coupon deleted from this device.");
+    } catch {
+      setNotice("Could not delete the record. Please try again.");
+    }
   }
 
   async function copyLink(record: CouponRecord) {
     try {
       await navigator.clipboard.writeText(record.url);
       setNotice("Link copied to clipboard.");
-    } catch { setNotice("Clipboard access was blocked. Open the coupon and copy the link from your browser address bar."); }
+    } catch {
+      setNotice("Clipboard access was blocked. Open the coupon and copy the link from your browser address bar.");
+    }
   }
 
   function exportBackup() {
     const backup = { app: "Coupon Link Vault", version: 1, exportedAt: new Date().toISOString(), records };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a"); anchor.href = url; anchor.download = `coupon-link-vault-${localDateKey()}.json`; document.body.appendChild(anchor); anchor.click(); anchor.remove(); window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-    setNotice("Backup exported. Keep the file somewhere safe.");
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `coupon-link-vault-${localDateKey()}.json`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setNotice("Backup exported successfully. Keep the file somewhere safe.");
   }
 
   async function importBackup(event: ChangeEvent<HTMLInputElement>) {
@@ -244,89 +331,737 @@ function CouponVault() {
         const value = item as Partial<CouponRecord>;
         if (typeof value.url !== "string" || !validHttpUrl(value.url) || typeof value.id !== "string") throw new Error("A record has an invalid URL or ID.");
         return {
-          id: value.id.slice(0, 120), title: String(value.title ?? "Gemini Pro · 18 months").slice(0, 200), url: value.url.slice(0, 4000),
-          source: String(value.source ?? "").slice(0, 200), receivedAt: String(value.receivedAt ?? "").slice(0, 10), expiresAt: String(value.expiresAt ?? "").slice(0, 10),
-          notes: String(value.notes ?? "").slice(0, 2000), activatedAt: String(value.activatedAt ?? ""), createdAt: String(value.createdAt ?? new Date().toISOString()), updatedAt: new Date().toISOString(),
+          id: value.id.slice(0, 120),
+          title: String(value.title ?? "Gemini Pro · 18 months").slice(0, 200),
+          url: value.url.slice(0, 4000),
+          source: String(value.source ?? "").slice(0, 200),
+          receivedAt: String(value.receivedAt ?? "").slice(0, 10),
+          expiresAt: String(value.expiresAt ?? "").slice(0, 10),
+          notes: String(value.notes ?? "").slice(0, 2000),
+          activatedAt: String(value.activatedAt ?? ""),
+          createdAt: String(value.createdAt ?? new Date().toISOString()),
+          updatedAt: new Date().toISOString(),
         };
       });
       if (!window.confirm(`Import ${clean.length} coupon record(s)? Matching IDs will be updated. This happens only in this browser.`)) return;
       for (const record of clean) await saveRecord(db, record);
-      await refreshRecords(); setNotice(`Imported ${clean.length} record(s) to this device.`);
-    } catch (error) { setNotice(error instanceof Error ? error.message : "Could not read that backup file."); }
+      await refreshRecords();
+      setNotice(`Imported ${clean.length} record(s) to this device.`);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Could not read that backup file.");
+    }
   }
 
   return (
-    <main className="vault-shell">
-      <header className="topbar">
-        <a className="brand" href="#top" aria-label="Coupon Link Vault home"><span className="brand-mark"><Icon name="archive" size={20} /></span><span>coupon<span className="brand-light">vault</span></span></a>
-        <div className="topbar-right"><span className="local-pill"><span className="local-dot" /> Stored on this device</span><button className="button export-backup-button button-small" onClick={exportBackup} disabled={!records.length} type="button"><Icon name="download" size={15} /> Export backup</button></div>
-      </header>
+    <div className={`app-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
+      {/* Mobile drawer backdrop */}
+      {mobileMenuOpen && (
+        <div
+          className="mobile-backdrop"
+          onClick={() => setMobileMenuOpen(false)}
+          aria-hidden="true"
+        />
+      )}
 
-      <section className="hero" id="top">
-        <div className="hero-copy">
-          <div className="eyebrow"><span className="eyebrow-line" /> YOUR PERSONAL LINK ARCHIVE</div>
-          <h1>Keep every link<br /><span>within reach.</span></h1>
-          <p>Save your Gemini Pro 18-month coupon links, track dates, and know which ones need attention.</p>
-          <div className="hero-actions"><button className="button hero-add-button" onClick={openNewForm} type="button"><Icon name="plus" size={17} /> Add a coupon</button><button className="button hero-import-button" onClick={() => importRef.current?.click()} type="button"><Icon name="upload" size={16} /> Import backup</button><input ref={importRef} className="visually-hidden" type="file" accept="application/json,.json" onChange={importBackup} aria-label="Choose a coupon backup file" /></div>
+      {/* Hidden file input for importing backup */}
+      <input
+        ref={importRef}
+        className="visually-hidden"
+        type="file"
+        accept="application/json,.json"
+        onChange={importBackup}
+        aria-label="Choose a coupon backup file"
+      />
+
+      {/* Modern Collapsible Left Sidebar */}
+      <aside className={`app-sidebar ${mobileMenuOpen ? "mobile-open" : ""}`} aria-label="Sidebar navigation">
+        <div className="sidebar-top">
+          <a className="sidebar-brand" href="#top" aria-label="Coupon Link Vault Home">
+            <span className="brand-glow-mark">
+              <Icon name="archive" size={20} />
+            </span>
+            <div className="brand-labels">
+              <span className="brand-title">coupon<span className="brand-accent">vault</span></span>
+              <span className="brand-subtitle">DEVICE LINK ARCHIVE</span>
+            </div>
+          </a>
+
+          <button
+            type="button"
+            className="sidebar-collapse-toggle desktop-only"
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            title={sidebarCollapsed ? "Expand sidebar (⌘B)" : "Collapse sidebar (⌘B)"}
+            aria-label="Toggle sidebar collapse"
+          >
+            <Icon name="panelLeft" size={17} />
+          </button>
+
+          <button
+            type="button"
+            className="sidebar-close-toggle mobile-only"
+            onClick={() => setMobileMenuOpen(false)}
+            aria-label="Close menu"
+          >
+            <Icon name="close" size={18} />
+          </button>
         </div>
-        <div className="hero-art" aria-hidden="true">
-          <div className="art-orbit art-orbit-one" /><div className="art-orbit art-orbit-two" />
-          <div className="art-card art-card-back"><span className="art-card-kicker">REDEMPTION RECORD</span><span className="art-skeleton short" /><span className="art-skeleton" /><span className="art-skeleton medium" /></div>
-          <div className="art-card art-card-front"><div className="art-card-head"><span className="art-mini-mark"><Icon name="archive" size={16} /></span><span className="art-state"><span /> SAVED</span></div><div className="art-card-title">Gemini Pro</div><div className="art-card-sub">18 month offer</div><div className="art-divider" /><div className="art-card-foot"><span><small>EXPIRES</small><b>- - -</b></span><span className="art-calendar"><Icon name="calendar" size={20} /></span></div></div>
-          <div className="art-stamp"><Icon name="shield" size={16} /><span>LOCAL<br />ONLY</span></div><div className="art-number">01 / ARCHIVE</div>
+
+        {/* Sidebar Primary Action */}
+        <div className="sidebar-action-container">
+          <button
+            type="button"
+            className="sidebar-cta-btn"
+            onClick={() => {
+              openNewForm();
+              setMobileMenuOpen(false);
+            }}
+          >
+            <Icon name="plus" size={17} />
+            <span className="sidebar-cta-text">Add Coupon</span>
+          </button>
         </div>
-      </section>
 
-      <section className="metrics" aria-label="Coupon overview">
-        <Metric label="Saved links" value={counts.all} note="In this browser" icon="archive" tone="blue" />
-        <Metric label="Expiring soon" value={counts.soon} note="Within 7 days" icon="clock" tone="gold" />
-        <Metric label="Expired" value={counts.expired} note="Check offer terms" icon="calendar" tone="rose" />
-        <Metric label="Activated" value={counts.activated} note="Marked by you" icon="check" tone="green" />
-      </section>
+        {/* Navigation Categories */}
+        <nav className="sidebar-nav">
+          <div className="sidebar-section-label">CATEGORIES</div>
 
-      {storageError && <div className="notice notice-error" role="alert">{storageError}</div>}
-      {notice && <div className="notice" role="status"><span>{notice}</span><button type="button" aria-label="Dismiss message" onClick={() => setNotice("")}><Icon name="close" size={15} /></button></div>}
+          <button
+            type="button"
+            className={`nav-button ${filter === "all" ? "active" : ""}`}
+            onClick={() => { setFilter("all"); setMobileMenuOpen(false); }}
+          >
+            <span className="nav-icon"><Icon name="archive" size={16} /></span>
+            <span className="nav-text">All Coupons</span>
+            <span className="nav-count">{counts.all}</span>
+          </button>
 
-      {formOpen && <section className="form-panel" aria-labelledby="form-title">
-        <div className="panel-heading"><div><div className="eyebrow">NEW ARCHIVE ENTRY</div><h2 id="form-title">{editingId ? "Edit coupon details" : "Save a coupon link"}</h2><p>Only stored in this browser profile. Fields with * are required.</p></div><button className="icon-button" type="button" onClick={() => setFormOpen(false)} aria-label="Close form"><Icon name="close" /></button></div>
-        <form onSubmit={submitForm} className="coupon-form">
-          <label className="field field-wide"><span>Label *</span><input value={form.title} maxLength={200} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Gemini Pro · 18 months" required /></label>
-          <label className="field field-wide"><span>Coupon activation link *</span><input value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} placeholder="https://…" type="url" inputMode="url" autoComplete="url" required /></label>
-          <label className="field"><span>Source / partner</span><input value={form.source} maxLength={200} onChange={(e) => setForm({ ...form, source: e.target.value })} placeholder="e.g. partner app" /></label>
-          <label className="field"><span>Date received</span><input value={form.receivedAt} onChange={(e) => setForm({ ...form, receivedAt: e.target.value })} type="date" /></label>
-          <label className="field"><span>Link expiry date</span><input value={form.expiresAt} onChange={(e) => setForm({ ...form, expiresAt: e.target.value })} type="date" /><small>Enter the link's deadline, not the 18-month subscription end date.</small></label>
-          <label className="field"><span>Private notes</span><textarea value={form.notes} maxLength={2000} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={3} placeholder="Where it came from, offer terms, reminders…" /></label>
-          {formError && <p className="form-error" role="alert">{formError}</p>}
-          <div className="form-footer"><p><Icon name="shield" size={16} /> Your link stays on this device. Do not store Google passwords or verification codes here.</p><div><button className="button form-cancel-button" type="button" onClick={() => setFormOpen(false)}>Cancel</button><button className="button form-save-button" type="submit" disabled={!ready || !!storageError}><Icon name="check" size={16} /> {editingId ? "Save changes" : "Save coupon"}</button></div></div>
-        </form>
-      </section>}
+          <button
+            type="button"
+            className={`nav-button ${filter === "active" ? "active" : ""}`}
+            onClick={() => { setFilter("active"); setMobileMenuOpen(false); }}
+          >
+            <span className="nav-icon tone-blue"><Icon name="sparkles" size={16} /></span>
+            <span className="nav-text">Active Links</span>
+            <span className="nav-count badge-blue">{counts.active}</span>
+          </button>
 
-      <section className="archive-section" id="archive">
-        <div className="archive-heading"><div><div className="eyebrow">THE COLLECTION</div><h2>Your coupon archive</h2><p>Search, sort, and take action on your saved links.</p></div><button className="button archive-add-button add-secondary" type="button" onClick={openNewForm}><Icon name="plus" size={16} /> Add coupon</button></div>
-        <div className="archive-tools"><label className="search-box"><Icon name="search" size={18} /><input ref={searchRef} aria-label="Search coupons" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search labels, sources, notes…" /><kbd>⌘ K</kbd></label><div className="filter-list" aria-label="Filter by status">{(["all", "active", "soon", "expired", "activated"] as const).map((item) => <button key={item} type="button" className={`filter-chip ${filter === item ? "selected" : ""}`} onClick={() => setFilter(item)}>{item === "all" ? "All links" : STATUS_LABEL[item as Status]}<span>{item === "all" ? counts.all : counts[item]}</span></button>)}</div></div>
-        {!ready ? <div className="empty-state"><span className="empty-icon"><Icon name="archive" size={25} /></span><h3>Opening your local archive…</h3><p>Your coupon data is read from this browser only.</p></div> : visibleRecords.length === 0 ? <div className="empty-state"><span className="empty-icon"><Icon name={search || filter !== "all" ? "search" : "archive"} size={25} /></span><h3>{records.length ? "No matching coupons" : "Your archive starts here"}</h3><p>{records.length ? "Try another search or status filter." : "Add your first coupon link to keep its details and deadline in one place."}</p>{!records.length && <button className="button empty-add-button" type="button" onClick={openNewForm}><Icon name="plus" size={16} /> Add your first coupon</button>}</div> : <div className="record-list">{visibleRecords.map((record, index) => <CouponCard key={record.id} record={record} status={statusOf(record, today)} index={index} onCopy={copyLink} onEdit={editRecord} onToggle={toggleActivated} onDelete={removeRecord} />)}</div>}
-        <div className="archive-foot"><span>Showing {visibleRecords.length} of {records.length} {records.length === 1 ? "record" : "records"}</span><span><span className="local-dot" /> Saved locally</span></div>
-      </section>
+          <button
+            type="button"
+            className={`nav-button ${filter === "soon" ? "active" : ""}`}
+            onClick={() => { setFilter("soon"); setMobileMenuOpen(false); }}
+          >
+            <span className="nav-icon tone-amber"><Icon name="clock" size={16} /></span>
+            <span className="nav-text">Expiring Soon</span>
+            <span className="nav-count badge-amber">{counts.soon}</span>
+          </button>
 
-      <section className="bottom-notes">
-        <div className="note-card note-main"><span className="note-icon"><Icon name="shield" size={20} /></span><div><h3>Private by design</h3><p>Your coupon records are saved in IndexedDB inside this browser profile. Nothing is uploaded by this tool. Export a backup before clearing browser data or changing devices.</p></div></div>
-        <div className="note-card note-secondary"><span className="note-icon note-clock"><Icon name="clock" size={20} /></span><div><h3>Expiry is not extendable here</h3><p>Status is estimated from the date you enter. This tool cannot check Google's live redemption system or make an expired link valid again.</p></div></div>
-      </section>
-      <footer className="footer"><a className="brand footer-brand" href="#top"><span className="brand-mark"><Icon name="archive" size={17} /></span><span>coupon<span className="brand-light">vault</span></span></a><span>Personal archive · No account required</span><a href="#top" className="back-top">Back to top <Icon name="arrow" size={14} /></a></footer>
-    </main>
+          <button
+            type="button"
+            className={`nav-button ${filter === "expired" ? "active" : ""}`}
+            onClick={() => { setFilter("expired"); setMobileMenuOpen(false); }}
+          >
+            <span className="nav-icon tone-rose"><Icon name="calendar" size={16} /></span>
+            <span className="nav-text">Expired</span>
+            <span className="nav-count badge-rose">{counts.expired}</span>
+          </button>
+
+          <button
+            type="button"
+            className={`nav-button ${filter === "activated" ? "active" : ""}`}
+            onClick={() => { setFilter("activated"); setMobileMenuOpen(false); }}
+          >
+            <span className="nav-icon tone-emerald"><Icon name="check" size={16} /></span>
+            <span className="nav-text">Activated</span>
+            <span className="nav-count badge-emerald">{counts.activated}</span>
+          </button>
+
+          <div className="sidebar-section-label">BACKUP & TOOLS</div>
+
+          <button
+            type="button"
+            className="nav-button"
+            onClick={() => { exportBackup(); setMobileMenuOpen(false); }}
+            disabled={!records.length}
+          >
+            <span className="nav-icon"><Icon name="download" size={16} /></span>
+            <span className="nav-text">Export Backup</span>
+            <span className="nav-pill-badge">JSON</span>
+          </button>
+
+          <button
+            type="button"
+            className="nav-button"
+            onClick={() => { importRef.current?.click(); setMobileMenuOpen(false); }}
+          >
+            <span className="nav-icon"><Icon name="upload" size={16} /></span>
+            <span className="nav-text">Import Backup</span>
+            <span className="nav-pill-badge">JSON</span>
+          </button>
+        </nav>
+
+        {/* Sidebar Footer Indicator */}
+        <div className="sidebar-footer">
+          <div className="storage-status-card">
+            <div className="storage-status-header">
+              <span className="live-status-dot" />
+              <span className="storage-status-title">Private Local Archive</span>
+            </div>
+            <p className="storage-status-desc">
+              IndexedDB storage only. No cloud sync, completely device-bound.
+            </p>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main Panel */}
+      <div className="app-main-pane">
+        {/* Sleek Top Header */}
+        <header className="app-topbar">
+          <div className="topbar-left">
+            <button
+              type="button"
+              className="topbar-action-icon mobile-only"
+              onClick={() => setMobileMenuOpen(true)}
+              aria-label="Open menu"
+            >
+              <Icon name="menu" size={20} />
+            </button>
+
+            <button
+              type="button"
+              className="topbar-action-icon desktop-only"
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              title={sidebarCollapsed ? "Expand sidebar (⌘B)" : "Collapse sidebar (⌘B)"}
+              aria-label="Toggle sidebar"
+            >
+              <Icon name="panelLeft" size={18} />
+            </button>
+
+            {/* Global Search Bar */}
+            <div className="header-search-bar">
+              <Icon name="search" size={16} />
+              <input
+                ref={searchRef}
+                type="search"
+                placeholder="Search coupons, links, partners, notes..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                aria-label="Search archive"
+              />
+              <kbd className="search-kbd">⌘K</kbd>
+            </div>
+          </div>
+
+          <div className="topbar-right">
+            {/* Live Security indicator */}
+            <div className="device-status-badge">
+              <span className="device-status-dot" />
+              <span className="device-status-text">Local Only</span>
+            </div>
+
+            {/* Quick Export Button */}
+            <button
+              type="button"
+              className="topbar-button topbar-secondary-btn"
+              onClick={exportBackup}
+              disabled={!records.length}
+              title="Download JSON backup"
+            >
+              <Icon name="download" size={15} />
+              <span className="button-text">Export</span>
+            </button>
+
+            {/* Quick Add Button */}
+            <button
+              type="button"
+              className="topbar-button topbar-primary-btn"
+              onClick={openNewForm}
+            >
+              <Icon name="plus" size={16} />
+              <span className="button-text">Add Coupon</span>
+            </button>
+          </div>
+        </header>
+
+        {/* Scrollable Content Container */}
+        <main className="app-content-body">
+          {/* Notifications */}
+          {storageError && <div className="notice notice-error" role="alert">{storageError}</div>}
+          {notice && (
+            <div className="notice" role="status">
+              <span>{notice}</span>
+              <button type="button" aria-label="Dismiss message" onClick={() => setNotice("")}>
+                <Icon name="close" size={15} />
+              </button>
+            </div>
+          )}
+
+          {/* Hero Section */}
+          <section className="hero-banner" id="top">
+            <div className="hero-content">
+              <div className="hero-eyebrow">
+                <span className="eyebrow-accent" />
+                <span>OFFLINE LINK VAULT</span>
+              </div>
+              <h1 className="hero-title">
+                Keep every coupon<br />
+                <span className="title-gradient">within reach.</span>
+              </h1>
+              <p className="hero-description">
+                Store and organize your Gemini Pro 18-month coupon links, monitor deadlines, and export backups securely.
+              </p>
+              <div className="hero-buttons">
+                <button type="button" className="hero-btn-primary" onClick={openNewForm}>
+                  <Icon name="plus" size={17} /> Add coupon link
+                </button>
+                <button type="button" className="hero-btn-secondary" onClick={() => importRef.current?.click()}>
+                  <Icon name="upload" size={16} /> Import backup
+                </button>
+              </div>
+            </div>
+
+            <div className="hero-visual" aria-hidden="true">
+              <div className="visual-glow-ring" />
+              <div className="visual-card visual-card-back">
+                <span className="card-kicker">REDEMPTION ARCHIVE</span>
+                <span className="card-skeleton skeleton-sm" />
+                <span className="card-skeleton" />
+                <span className="card-skeleton skeleton-md" />
+              </div>
+              <div className="visual-card visual-card-front">
+                <div className="card-front-top">
+                  <span className="card-gem-icon"><Icon name="archive" size={15} /></span>
+                  <span className="card-status-badge"><span /> SECURED</span>
+                </div>
+                <div className="card-front-title">Gemini Pro</div>
+                <div className="card-front-subtitle">18 Month Offer</div>
+                <div className="card-front-divider" />
+                <div className="card-front-bottom">
+                  <span><small>EXPIRES</small><b>- - -</b></span>
+                  <span className="card-cal-icon"><Icon name="calendar" size={18} /></span>
+                </div>
+              </div>
+              <div className="visual-stamp">
+                <Icon name="shield" size={15} />
+                <span>LOCAL<br />ONLY</span>
+              </div>
+            </div>
+          </section>
+
+          {/* Metric Cards Grid */}
+          <section className="metrics-grid" aria-label="Coupon overview metrics">
+            <MetricCard
+              label="Saved links"
+              value={counts.all}
+              note="In this browser profile"
+              icon="archive"
+              tone="blue"
+              onClick={() => setFilter("all")}
+              active={filter === "all"}
+            />
+            <MetricCard
+              label="Expiring soon"
+              value={counts.soon}
+              note="Within next 7 days"
+              icon="clock"
+              tone="gold"
+              onClick={() => setFilter("soon")}
+              active={filter === "soon"}
+            />
+            <MetricCard
+              label="Expired"
+              value={counts.expired}
+              note="Past redemption date"
+              icon="calendar"
+              tone="rose"
+              onClick={() => setFilter("expired")}
+              active={filter === "expired"}
+            />
+            <MetricCard
+              label="Activated"
+              value={counts.activated}
+              note="Marked as redeemed"
+              icon="check"
+              tone="green"
+              onClick={() => setFilter("activated")}
+              active={filter === "activated"}
+            />
+          </section>
+
+          {/* Add / Edit Form Panel */}
+          {formOpen && (
+            <section className="form-container-card" aria-labelledby="form-heading">
+              <div className="form-card-header">
+                <div>
+                  <div className="form-eyebrow">ARCHIVE ENTRY</div>
+                  <h2 id="form-heading">{editingId ? "Edit coupon details" : "Save a new coupon link"}</h2>
+                  <p>Stored only in your browser's IndexedDB. Fields with * are required.</p>
+                </div>
+                <button
+                  type="button"
+                  className="form-close-btn"
+                  onClick={() => setFormOpen(false)}
+                  aria-label="Close form"
+                >
+                  <Icon name="close" size={18} />
+                </button>
+              </div>
+
+              <form onSubmit={submitForm} className="coupon-entry-form">
+                <label className="input-group span-full">
+                  <span>Label / Title *</span>
+                  <input
+                    value={form.title}
+                    maxLength={200}
+                    onChange={(e) => setForm({ ...form, title: e.target.value })}
+                    placeholder="e.g. Gemini Pro · 18 months"
+                    required
+                  />
+                </label>
+
+                <label className="input-group span-full">
+                  <span>Coupon activation link *</span>
+                  <input
+                    value={form.url}
+                    onChange={(e) => setForm({ ...form, url: e.target.value })}
+                    placeholder="https://..."
+                    type="url"
+                    inputMode="url"
+                    autoComplete="url"
+                    required
+                  />
+                </label>
+
+                <label className="input-group">
+                  <span>Source / Partner</span>
+                  <input
+                    value={form.source}
+                    maxLength={200}
+                    onChange={(e) => setForm({ ...form, source: e.target.value })}
+                    placeholder="e.g. Google One, Samsung, Partner promotion"
+                  />
+                </label>
+
+                <label className="input-group">
+                  <span>Date received</span>
+                  <input
+                    value={form.receivedAt}
+                    onChange={(e) => setForm({ ...form, receivedAt: e.target.value })}
+                    type="date"
+                  />
+                </label>
+
+                <label className="input-group">
+                  <span>Link expiry date</span>
+                  <input
+                    value={form.expiresAt}
+                    onChange={(e) => setForm({ ...form, expiresAt: e.target.value })}
+                    type="date"
+                  />
+                  <small>Enter the link's activation deadline, not the end of the subscription.</small>
+                </label>
+
+                <label className="input-group span-full">
+                  <span>Private notes</span>
+                  <textarea
+                    value={form.notes}
+                    maxLength={2000}
+                    onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                    rows={3}
+                    placeholder="Where you received it, account restrictions, reminders..."
+                  />
+                </label>
+
+                {formError && <p className="form-error-msg" role="alert">{formError}</p>}
+
+                <div className="form-action-footer">
+                  <p className="privacy-reminder">
+                    <Icon name="shield" size={16} />
+                    <span>Your link stays on this device. Do not store passwords or verification codes here.</span>
+                  </p>
+                  <div className="form-buttons-group">
+                    <button
+                      type="button"
+                      className="btn-cancel"
+                      onClick={() => setFormOpen(false)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="btn-save"
+                      disabled={!ready || !!storageError}
+                    >
+                      <Icon name="check" size={16} />
+                      <span>{editingId ? "Save changes" : "Save coupon"}</span>
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </section>
+          )}
+
+          {/* Coupons Archive Section */}
+          <section className="archive-card-wrapper" id="archive">
+            <div className="archive-top-bar">
+              <div>
+                <div className="archive-eyebrow">YOUR COLLECTION</div>
+                <h2 className="archive-title">Saved Coupon Links</h2>
+                <p className="archive-subtitle">Search, filter, copy, and manage your redemption links.</p>
+              </div>
+              <button
+                type="button"
+                className="add-coupon-secondary"
+                onClick={openNewForm}
+              >
+                <Icon name="plus" size={16} />
+                <span>Add coupon</span>
+              </button>
+            </div>
+
+            {/* Filter pills bar */}
+            <div className="filters-strip" aria-label="Filter status">
+              {(["all", "active", "soon", "expired", "activated"] as const).map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  className={`filter-pill-btn ${filter === item ? "selected" : ""}`}
+                  onClick={() => setFilter(item)}
+                >
+                  <span>{item === "all" ? "All links" : STATUS_LABEL[item as Status]}</span>
+                  <span className="pill-number">{item === "all" ? counts.all : counts[item]}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* List / Empty State */}
+            {!ready ? (
+              <div className="empty-archive-state">
+                <span className="empty-state-icon"><Icon name="archive" size={26} /></span>
+                <h3>Opening local archive…</h3>
+                <p>Loading your coupon data from this browser's IndexedDB.</p>
+              </div>
+            ) : visibleRecords.length === 0 ? (
+              <div className="empty-archive-state">
+                <span className="empty-state-icon">
+                  <Icon name={search || filter !== "all" ? "search" : "archive"} size={26} />
+                </span>
+                <h3>{records.length ? "No matching coupons found" : "Your archive is empty"}</h3>
+                <p>
+                  {records.length
+                    ? "Try adjusting your search terms or selecting a different status filter."
+                    : "Add your first coupon link to track its activation deadline in one secure place."}
+                </p>
+                {!records.length && (
+                  <button type="button" className="empty-cta-btn" onClick={openNewForm}>
+                    <Icon name="plus" size={16} />
+                    <span>Add your first coupon</span>
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="coupon-cards-list">
+                {visibleRecords.map((record, index) => (
+                  <CouponCard
+                    key={record.id}
+                    record={record}
+                    status={statusOf(record, today)}
+                    index={index}
+                    onCopy={copyLink}
+                    onEdit={editRecord}
+                    onToggle={toggleActivated}
+                    onDelete={removeRecord}
+                  />
+                ))}
+              </div>
+            )}
+
+            <div className="archive-bottom-status">
+              <span>Showing {visibleRecords.length} of {records.length} {records.length === 1 ? "link" : "links"}</span>
+              <span className="device-safe-tag"><span className="live-status-dot" /> Stored locally</span>
+            </div>
+          </section>
+
+          {/* Privacy & Expiry Notice Cards */}
+          <section className="info-cards-row">
+            <div className="info-card info-card-primary">
+              <span className="info-card-icon"><Icon name="shield" size={20} /></span>
+              <div>
+                <h3>Private by design</h3>
+                <p>Your coupon links are saved exclusively in IndexedDB inside this browser profile. Nothing is uploaded to any server. Export a backup before resetting browser cookies or switching computers.</p>
+              </div>
+            </div>
+            <div className="info-card info-card-amber">
+              <span className="info-card-icon amber-icon"><Icon name="clock" size={20} /></span>
+              <div>
+                <h3>Expiry estimation</h3>
+                <p>Statuses are calculated from the expiration dates you enter. This tool cannot verify redemption status with external Google APIs or extend an expired link.</p>
+              </div>
+            </div>
+          </section>
+
+          {/* Footer */}
+          <footer className="app-footer">
+            <div className="footer-brand">
+              <span className="brand-glow-mark sm"><Icon name="archive" size={16} /></span>
+              <span>coupon<span className="brand-accent">vault</span></span>
+            </div>
+            <span className="footer-tagline">Personal & Private Link Archive · 100% Offline</span>
+            <a href="#top" className="back-to-top-link">
+              <span>Back to top</span>
+              <Icon name="arrow" size={14} />
+            </a>
+          </footer>
+        </main>
+      </div>
+    </div>
   );
 }
 
-function Metric({ label, value, note, icon, tone }: { label: string; value: number; note: string; icon: string; tone: string }) {
-  return <div className="metric-card"><span className={`metric-icon ${tone}`}><Icon name={icon} size={18} /></span><div className="metric-body"><span className="metric-label">{label}</span><strong>{value}</strong><small>{note}</small></div><span className="metric-index">/ {String(value).padStart(2, "0")}</span></div>;
+function MetricCard({
+  label,
+  value,
+  note,
+  icon,
+  tone,
+  onClick,
+  active,
+}: {
+  label: string;
+  value: number;
+  note: string;
+  icon: string;
+  tone: "blue" | "gold" | "rose" | "green";
+  onClick?: () => void;
+  active?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      className={`metric-tile metric-tone-${tone} ${active ? "metric-active" : ""}`}
+      onClick={onClick}
+    >
+      <div className="metric-tile-top">
+        <span className={`metric-icon-box tone-${tone}`}><Icon name={icon} size={18} /></span>
+        <span className="metric-index-counter">/ {String(value).padStart(2, "0")}</span>
+      </div>
+      <div className="metric-tile-content">
+        <span className="metric-title-label">{label}</span>
+        <strong className="metric-big-number">{value}</strong>
+        <small className="metric-sub-note">{note}</small>
+      </div>
+    </button>
+  );
 }
 
-function CouponCard({ record, status, index, onCopy, onEdit, onToggle, onDelete }: { record: CouponRecord; status: Status; index: number; onCopy: (record: CouponRecord) => void; onEdit: (record: CouponRecord) => void; onToggle: (record: CouponRecord) => void; onDelete: (record: CouponRecord) => void }) {
-  const statusClass = status === "active" ? "status-active" : status === "soon" ? "status-soon" : status === "expired" ? "status-expired" : status === "activated" ? "status-activated" : "status-undated";
+function CouponCard({
+  record,
+  status,
+  index,
+  onCopy,
+  onEdit,
+  onToggle,
+  onDelete,
+}: {
+  record: CouponRecord;
+  status: Status;
+  index: number;
+  onCopy: (record: CouponRecord) => void;
+  onEdit: (record: CouponRecord) => void;
+  onToggle: (record: CouponRecord) => void;
+  onDelete: (record: CouponRecord) => void;
+}) {
+  const statusClass = `status-pill-${status}`;
   const days = record.expiresAt ? daysUntil(record.expiresAt, localDateKey()) : null;
-  return <article className="record-card">
-    <div className="record-number">{String(index + 1).padStart(2, "0")}</div>
-    <div className="record-primary"><div className="record-title-line"><h3>{record.title}</h3><span className={`status-pill ${statusClass}`}><span />{STATUS_LABEL[status]}</span></div><p className="record-url">{record.url.replace(/^https?:\/\//, "").replace(/\/$/, "")}</p><div className="record-meta"><span>{record.source || "Source not added"}</span><span className="meta-divider" /><span>Received {formatDate(record.receivedAt)}</span><span className="meta-divider" /><span className={status === "expired" ? "expiry-danger" : status === "soon" ? "expiry-warning" : ""}>{record.expiresAt ? (status === "expired" ? `Expired ${Math.abs(days ?? 0)}d ago` : status === "soon" ? (days === 0 ? "Expires today" : `Expires in ${days}d`) : `Expires ${formatDate(record.expiresAt)}`) : "No expiry date"}</span></div>{record.notes && <p className="record-notes">{record.notes}</p>}</div>
-    <div className="record-actions"><button className="action-button" type="button" onClick={() => onCopy(record)} title="Copy link" aria-label={`Copy link for ${record.title}`}><Icon name="copy" size={16} /><span>Copy</span></button><a className="action-button" href={record.url} target="_blank" rel="noopener noreferrer" title="Open activation link"><Icon name="external" size={16} /><span>Open</span></a><button className="action-button action-more" type="button" onClick={() => onEdit(record)} title="Edit coupon" aria-label={`Edit ${record.title}`}>Edit</button><button className={`action-button ${record.activatedAt ? "action-done" : ""}`} type="button" onClick={() => onToggle(record)} title={record.activatedAt ? "Remove activation mark" : "Mark activated"}><Icon name="check" size={16} /><span>{record.activatedAt ? "Activated" : "Mark used"}</span></button><button className="action-delete" type="button" onClick={() => onDelete(record)} aria-label={`Delete ${record.title}`} title="Delete coupon"><Icon name="trash" size={16} /></button></div>
-  </article>;
+
+  return (
+    <article className="coupon-card-item">
+      <div className="coupon-item-index">{String(index + 1).padStart(2, "0")}</div>
+      <div className="coupon-item-body">
+        <div className="coupon-item-title-row">
+          <h3 className="coupon-title-text">{record.title}</h3>
+          <span className={`status-pill ${statusClass}`}>
+            <span className="status-dot" />
+            {STATUS_LABEL[status]}
+          </span>
+        </div>
+
+        <p className="coupon-url-preview">
+          {record.url.replace(/^https?:\/\//, "").replace(/\/$/, "")}
+        </p>
+
+        <div className="coupon-meta-tags">
+          <span className="meta-source-tag"><Icon name="tag" size={12} /> {record.source || "No source tag"}</span>
+          <span className="meta-sep" />
+          <span>Received {formatDate(record.receivedAt)}</span>
+          <span className="meta-sep" />
+          <span className={status === "expired" ? "text-danger" : status === "soon" ? "text-warning" : "text-muted"}>
+            {record.expiresAt ? (
+              status === "expired"
+                ? `Expired ${Math.abs(days ?? 0)}d ago`
+                : status === "soon"
+                  ? (days === 0 ? "Expires today!" : `Expires in ${days}d`)
+                  : `Expires ${formatDate(record.expiresAt)}`
+            ) : "No expiry date"}
+          </span>
+        </div>
+
+        {record.notes && <p className="coupon-notes-bubble">{record.notes}</p>}
+      </div>
+
+      <div className="coupon-actions-toolbar">
+        <button
+          type="button"
+          className="action-btn copy-btn"
+          onClick={() => onCopy(record)}
+          title="Copy coupon link"
+          aria-label={`Copy link for ${record.title}`}
+        >
+          <Icon name="copy" size={15} />
+          <span>Copy</span>
+        </button>
+
+        <a
+          href={record.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="action-btn open-btn"
+          title="Open activation link in new tab"
+        >
+          <Icon name="external" size={15} />
+          <span>Open</span>
+        </a>
+
+        <button
+          type="button"
+          className="action-btn edit-btn"
+          onClick={() => onEdit(record)}
+          title="Edit details"
+          aria-label={`Edit ${record.title}`}
+        >
+          <span>Edit</span>
+        </button>
+
+        <button
+          type="button"
+          className={`action-btn activate-btn ${record.activatedAt ? "is-activated" : ""}`}
+          onClick={() => onToggle(record)}
+          title={record.activatedAt ? "Mark as unactivated" : "Mark as activated"}
+        >
+          <Icon name="check" size={15} />
+          <span>{record.activatedAt ? "Activated" : "Mark used"}</span>
+        </button>
+
+        <button
+          type="button"
+          className="action-btn delete-btn"
+          onClick={() => onDelete(record)}
+          title="Delete coupon"
+          aria-label={`Delete ${record.title}`}
+        >
+          <Icon name="trash" size={15} />
+        </button>
+      </div>
+    </article>
+  );
 }

@@ -21,7 +21,7 @@ function buildHead(meta: AppMeta) {
   const image = assetUrl(meta.og_image_url); const favicon = assetUrl(meta.favicon_url); const video = assetUrl(meta.og_video_url);
   return { meta: [
     { charSet: "utf-8" }, { name: "viewport", content: "width=device-width, initial-scale=1" }, { title },
-    { name: "description", content: description }, { name: "theme-color", content: "#f5f7fb" }, { name: "robots", content: "noindex, nofollow" },
+    { name: "description", content: description }, { name: "theme-color", content: "#0b0f17" }, { name: "robots", content: "noindex, nofollow" },
     { property: "og:title", content: title }, { property: "og:description", content: description }, { property: "og:type", content: "website" },
     { name: "twitter:card", content: image ? "summary_large_image" : "summary" },
     ...(image ? [{ property: "og:image", content: image }, { name: "twitter:image", content: image }] : []),
@@ -42,7 +42,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   errorComponent: ErrorComponent,
 });
 function RootShell({ children }: { children: ReactNode }) {
-  return <html lang="en" style={{ colorScheme: "light" }}><head><HeadContent /></head><body>{children}<Scripts /></body></html>;
+  return <html lang="en" className="dark" style={{ colorScheme: "dark" }}><head><HeadContent /></head><body>{children}<Scripts /></body></html>;
 }
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
