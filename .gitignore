@@ -15,7 +15,10 @@ dist-ssr/
 
 # Environment and logs
 *.log
+.env
+.env.*
 .env*.local
+!.env.example
 
 # System & IDE files
 .DS_Store
