@@ -18,13 +18,21 @@ import { fileURLToPath } from "node:url";
 const QUANTA_ICONS_SHIM = fileURLToPath(
   new URL("./src/lib/quanta-material-icons.ts", import.meta.url),
 );
+const CLOUDFLARE_SHIM = fileURLToPath(
+  new URL("./src/lib/cloudflare-shim.ts", import.meta.url),
+);
 
 export default defineConfig(({ mode, command }) => {
   const designInspectorEnabled = process.env.HF_DESIGN_INSPECTOR === "1" || mode === "design";
 
   return {
     resolve: {
-      alias: [{ find: /^@higgsfield-ai\/icons(\/.*)?$/, replacement: QUANTA_ICONS_SHIM }],
+      alias: [
+        { find: /^@higgsfield-ai\/icons(\/.*)?$/, replacement: QUANTA_ICONS_SHIM },
+        ...(command === "serve"
+          ? [{ find: "cloudflare:workers", replacement: CLOUDFLARE_SHIM }]
+          : []),
+      ],
     },
     // The server bundle runs as a Cloudflare Worker — there is no node_modules
     // at runtime. Vite's default SSR build leaves npm deps as bare external
@@ -73,6 +81,9 @@ export default defineConfig(({ mode, command }) => {
       // inside effects/handlers, or guarded with `typeof window !== "undefined"`.
       tanstackStart({
         server: { entry: "server" },
+        serverFns: {
+          disableCsrfMiddlewareWarning: true,
+        },
       }),
       higgsfieldDesignInspectorVitePlugin(designInspectorEnabled),
       react({
