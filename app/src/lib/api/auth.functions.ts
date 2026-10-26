@@ -64,7 +64,7 @@ export const loginServerFn = createServerFn({ method: "POST" })
               newId,
               normalizedEmail,
               data.password,
-              normalizedEmail.includes("admin") ? "AMF Administrator" : "AMF Staff",
+              normalizedEmail.includes("admin") ? "Sok Sopha" : "AMF Staff",
               normalizedEmail.includes("admin") ? "admin" : "staff",
               now
             )

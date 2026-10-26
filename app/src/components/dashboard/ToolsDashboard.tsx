@@ -634,25 +634,6 @@ export function ToolsDashboard({
     showToast("✓ Copied: " + (text.length > 32 ? text.slice(0, 32) + "..." : text));
   };
 
-  // Export CSV
-  const handleExportCSV = () => {
-    triggerTopLoader(300);
-    const headers = "CATEGORY,TITLE,KHMER_TITLE,CODE_OR_URL,ASSIGNED_EMAIL,SOURCE,PLAN_TIER,EXPIRY_DATE,STATUS,NOTES\n";
-    const rows = filteredItems
-      .map(
-        (it) =>
-          `"${it.category}","${it.title}","${it.titleKh || ""}","${it.urlOrCode}","${it.assignedEmail}","${it.source}","${it.planTier}","${it.expiryDate}","${it.status}","${it.notes || ""}"`
-      )
-      .join("\n");
-    const blob = new Blob([headers + rows], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${activeCategory}-passes-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    showToast("✓ Exported CSV successfully!");
-  };
 
   // Format Expiry Days
   const getDaysLeft = (expiryDate: string) => {
@@ -2159,20 +2140,7 @@ export function ToolsDashboard({
                     <option value="date-desc">Newest Added</option>
                   </select>
 
-                  {/* Export Button */}
-                  <button
-                    type="button"
-                    onClick={handleExportCSV}
-                    className="border border-slate-200 hover:bg-slate-100 text-slate-700 text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1.5 transition cursor-pointer"
-                    title="Export this list as CSV"
-                  >
-                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                      <polyline points="7 10 12 15 17 10" />
-                      <line x1="12" y1="15" x2="12" y2="3" />
-                    </svg>
-                    <span>Export</span>
-                  </button>
+
                 </div>
               </div>
 
@@ -2180,23 +2148,23 @@ export function ToolsDashboard({
                 5. DATA TABLE: ORIGINAL SYSTEM TOOLS & COUPON INFORMATION
               */}
               <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse min-w-[780px]">
+                <div className="overflow-x-auto scrollbar-thin">
+                  <table className="w-full text-left border-collapse min-w-[980px] whitespace-nowrap">
                     <thead>
-                      <tr className="border-b border-slate-200/80 bg-slate-50/50 text-[11px] font-bold text-slate-600 tracking-wider uppercase">
-                        <th className="py-3.5 px-5">TOOL & PLAN</th>
-                        <th className="py-3.5 px-4">PROMO CODE / URL</th>
-                        <th className="py-3.5 px-4">SOURCE / VENDOR</th>
-                        <th className="py-3.5 px-4">EXPIRY DATE</th>
-                        <th className="py-3.5 px-4">STATUS</th>
-                        <th className="py-3.5 px-4">ACCESS LINK</th>
-                        <th className="py-3.5 px-5 text-right">ACTIONS</th>
+                      <tr className="border-b border-slate-200/80 bg-slate-50/50 text-[11px] font-bold text-slate-600 tracking-wider uppercase whitespace-nowrap">
+                        <th className="py-3.5 px-5 whitespace-nowrap">TOOL & PLAN</th>
+                        <th className="py-3.5 px-4 whitespace-nowrap">PROMO CODE / URL</th>
+                        <th className="py-3.5 px-4 whitespace-nowrap">SOURCE / VENDOR</th>
+                        <th className="py-3.5 px-4 whitespace-nowrap">EXPIRY DATE</th>
+                        <th className="py-3.5 px-4 whitespace-nowrap">STATUS</th>
+                        <th className="py-3.5 px-4 whitespace-nowrap">ACCESS LINK</th>
+                        <th className="py-3.5 px-5 text-right whitespace-nowrap">ACTIONS</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 text-xs">
+                    <tbody className="divide-y divide-slate-100 text-xs whitespace-nowrap">
                       {filteredItems.length === 0 ? (
                         <tr>
-                          <td colSpan={7} className="py-12 text-center text-slate-400">
+                          <td colSpan={7} className="py-12 text-center text-slate-400 whitespace-nowrap">
                             No passes found in this category. Click "+ Add {modelMeta.title} Voucher" above to add one.
                           </td>
                         </tr>
@@ -2207,10 +2175,10 @@ export function ToolsDashboard({
                           const isSoon = days !== null && days >= 0 && days <= 7;
 
                           return (
-                            <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
+                            <tr key={item.id} className="hover:bg-slate-50/80 transition-colors whitespace-nowrap">
                               {/* Tool & Plan */}
-                              <td className="py-3.5 px-5">
-                                <div className="flex items-center gap-3">
+                              <td className="py-3.5 px-5 whitespace-nowrap">
+                                <div className="flex items-center gap-3 whitespace-nowrap">
                                   {/* 3D-styled Avatar */}
                                   <div
                                     className={`w-10 h-10 rounded-xl text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-sm ${
@@ -2231,8 +2199,8 @@ export function ToolsDashboard({
                                       ? "🎬"
                                       : "⚡"}
                                   </div>
-                                  <div className="flex flex-col">
-                                    <div className="font-extrabold text-slate-900 flex items-center gap-1.5">
+                                  <div className="flex flex-col whitespace-nowrap">
+                                    <div className="font-extrabold text-slate-900 flex items-center gap-1.5 whitespace-nowrap">
                                       <span>{item.title}</span>
                                       {item.titleKh && (
                                         <span className="text-purple-700 font-semibold text-[11px]">
@@ -2240,7 +2208,7 @@ export function ToolsDashboard({
                                         </span>
                                       )}
                                     </div>
-                                    <div className="flex items-center gap-2 mt-0.5">
+                                    <div className="flex items-center gap-2 mt-0.5 whitespace-nowrap">
                                       <span className="text-[11px] text-slate-500 font-medium">
                                         {item.assignedEmail}
                                       </span>
@@ -2253,10 +2221,10 @@ export function ToolsDashboard({
                               </td>
 
                               {/* Promo Code or URL with Copy button */}
-                              <td className="py-3 px-4">
-                                <div className="flex items-center gap-2">
+                              <td className="py-3 px-4 whitespace-nowrap">
+                                <div className="flex items-center gap-2 whitespace-nowrap">
                                   <span
-                                    className="font-mono text-slate-800 font-semibold text-[11px] max-w-[180px] truncate block"
+                                    className="font-mono text-slate-800 font-semibold text-[11px] max-w-[220px] truncate block"
                                     title={item.urlOrCode}
                                   >
                                     {item.urlOrCode.replace(/^https?:\/\//, "")}
@@ -2264,7 +2232,7 @@ export function ToolsDashboard({
                                   <button
                                     type="button"
                                     onClick={() => handleCopy(item.urlOrCode)}
-                                    className="px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 text-[10px] font-bold cursor-pointer transition shrink-0"
+                                    className="px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 text-[10px] font-bold cursor-pointer transition shrink-0 whitespace-nowrap"
                                     title="Copy code / URL"
                                   >
                                     Copy
@@ -2273,41 +2241,41 @@ export function ToolsDashboard({
                               </td>
 
                               {/* Source / Vendor */}
-                              <td className="py-3 px-4 font-bold text-slate-700 text-[11px]">
+                              <td className="py-3 px-4 font-bold text-slate-700 text-[11px] whitespace-nowrap">
                                 {item.source}
                               </td>
 
-                              {/* Expiry Date + Countdown Badge */}
-                              <td className="py-3 px-4">
-                                <div className="flex flex-col">
-                                  <span className="font-semibold text-slate-800 text-xs">
+                              {/* Expiry Date + Countdown Badge (All in One Single Line) */}
+                              <td className="py-3 px-4 whitespace-nowrap">
+                                <div className="flex items-center gap-2 whitespace-nowrap">
+                                  <span className="font-semibold text-slate-800 text-xs whitespace-nowrap">
                                     {item.expiryDate || "No Expiry"}
                                   </span>
                                   {days !== null && (
                                     <span
-                                      className={`text-[10px] font-bold mt-0.5 ${
+                                      className={`text-[10px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap ${
                                         isExpired
-                                          ? "text-rose-600"
+                                          ? "text-rose-700 bg-rose-50 border border-rose-200"
                                           : isSoon
-                                          ? "text-amber-600"
-                                          : "text-slate-400"
+                                          ? "text-amber-700 bg-amber-50 border border-amber-200"
+                                          : "text-slate-600 bg-slate-100"
                                       }`}
                                     >
                                       {isExpired
                                         ? `Expired ${Math.abs(days)}d ago`
                                         : days === 0
                                         ? "Expires today!"
-                                        : `In ${days} days`}
+                                        : `In ${days}d`}
                                     </span>
                                   )}
                                 </div>
                               </td>
 
-                              {/* Status Pill */}
-                              <td className="py-3 px-4">
-                                <div className="flex flex-col gap-1 items-start">
+                              {/* Status Pill (All in One Single Line) */}
+                              <td className="py-3 px-4 whitespace-nowrap">
+                                <div className="flex items-center gap-1.5 whitespace-nowrap">
                                   <span
-                                    className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 ${
+                                    className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 whitespace-nowrap ${
                                       item.status === "ACTIVE"
                                         ? "bg-emerald-100 text-emerald-800"
                                         : item.status === "SOON"
@@ -2337,32 +2305,32 @@ export function ToolsDashboard({
                                     </span>
                                   </span>
                                   {item.activatedAt ? (
-                                    <span className="text-[9px] text-purple-700 font-bold">
-                                      Activated: {item.activatedAt.slice(0, 10)}
+                                    <span className="text-[9px] text-purple-700 font-bold whitespace-nowrap">
+                                      ({item.activatedAt.slice(0, 10)})
                                     </span>
                                   ) : (
-                                    <span className="text-[9px] text-slate-400 font-medium">
-                                      មិនទាន់ Activate
+                                    <span className="text-[9px] text-slate-400 font-medium whitespace-nowrap">
+                                      (មិនទាន់ Activate)
                                     </span>
                                   )}
                                 </div>
                               </td>
 
                               {/* Access Link */}
-                              <td className="py-3 px-4">
-                                <div className="flex items-center gap-1.5">
+                              <td className="py-3 px-4 whitespace-nowrap">
+                                <div className="flex items-center gap-1.5 whitespace-nowrap">
                                   {item.urlOrCode.startsWith("http") ? (
                                     <a
                                       href={item.urlOrCode}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50/80 border border-blue-200/60 text-blue-800 text-[11px] font-bold hover:bg-blue-100 transition cursor-pointer"
+                                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50/80 border border-blue-200/60 text-blue-800 text-[11px] font-bold hover:bg-blue-100 transition cursor-pointer whitespace-nowrap"
                                     >
                                       <span>Open Link</span>
                                       <span className="text-xs">↗</span>
                                     </a>
                                   ) : (
-                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-[11px] font-bold">
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-[11px] font-bold whitespace-nowrap">
                                       <span>Code Pass</span>
                                     </span>
                                   )}
@@ -2371,7 +2339,7 @@ export function ToolsDashboard({
                                     <button
                                       type="button"
                                       onClick={() => handleOpenGoogleDetector(item)}
-                                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-800 text-[10px] font-bold cursor-pointer transition shadow-2xs"
+                                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-800 text-[10px] font-bold cursor-pointer transition shadow-2xs whitespace-nowrap"
                                       title="Auto Check ស្ថានភាពតាម System"
                                     >
                                       <span>⚡</span>
@@ -2382,13 +2350,13 @@ export function ToolsDashboard({
                               </td>
 
                               {/* Actions */}
-                              <td className="py-3 px-5 text-right">
-                                <div className="flex items-center justify-end gap-1.5">
+                              <td className="py-3 px-5 text-right whitespace-nowrap">
+                                <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
                                   {/* 1-Click Activate / Deactivate Toggle Button */}
                                   <button
                                     type="button"
                                     onClick={() => handleToggleActivate(item)}
-                                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer transition shadow-xs ${
+                                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer transition shadow-xs whitespace-nowrap ${
                                       item.status === "ACTIVATED"
                                         ? "bg-purple-100 text-purple-900 hover:bg-purple-200 border border-purple-300"
                                         : "bg-emerald-600 text-white hover:bg-emerald-700"
@@ -2412,7 +2380,7 @@ export function ToolsDashboard({
                                         handleCopy(item.urlOrCode);
                                       }
                                     }}
-                                    className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition cursor-pointer"
+                                    className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition cursor-pointer whitespace-nowrap"
                                     title="Open or Copy"
                                   >
                                     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -2424,7 +2392,7 @@ export function ToolsDashboard({
                                   <button
                                     type="button"
                                     onClick={() => handleOpenEditPage(item)}
-                                    className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition cursor-pointer"
+                                    className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition cursor-pointer whitespace-nowrap"
                                     title="Edit pass"
                                   >
                                     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -2436,7 +2404,7 @@ export function ToolsDashboard({
                                   <button
                                     type="button"
                                     onClick={() => handleDelete(item.id, item.title)}
-                                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer whitespace-nowrap"
                                     title="Delete pass"
                                   >
                                     <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

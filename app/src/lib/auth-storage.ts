@@ -29,7 +29,7 @@ const INITIAL_USERS: AuthUser[] = [
     id: "usr_admin_01",
     email: DEFAULT_ADMIN_EMAIL,
     password: DEFAULT_ADMIN_PASSWORD,
-    name: "AMF Administrator",
+    name: "Sok Sopha",
     role: "admin",
     createdAt: new Date().toISOString(),
   },
@@ -56,12 +56,19 @@ export function initAuthStorage(): AuthUser[] {
     }
 
     const parsed: AuthUser[] = JSON.parse(raw);
-    // Ensure the default admin exists
+    let updated = false;
+    // Ensure the default admin exists and has updated name
     const adminIdx = parsed.findIndex(
       (u) => u.email.toLowerCase() === DEFAULT_ADMIN_EMAIL.toLowerCase()
     );
     if (adminIdx === -1) {
       parsed.unshift(INITIAL_USERS[0]);
+      updated = true;
+    } else if (parsed[adminIdx].name === "AMF Administrator") {
+      parsed[adminIdx].name = "Sok Sopha";
+      updated = true;
+    }
+    if (updated) {
       localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(parsed));
     }
     return parsed;
@@ -206,7 +213,18 @@ export function getActiveSession(): AuthUser | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = localStorage.getItem(STORAGE_SESSION_KEY);
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+    const session: AuthUser = JSON.parse(raw);
+    if (session) {
+      if (
+        session.email?.toLowerCase() === DEFAULT_ADMIN_EMAIL.toLowerCase() ||
+        session.name === "AMF Administrator"
+      ) {
+        session.name = "Sok Sopha";
+        localStorage.setItem(STORAGE_SESSION_KEY, JSON.stringify(session));
+      }
+    }
+    return session;
   } catch {
     return null;
   }
