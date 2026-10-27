@@ -26,6 +26,11 @@ export default defineConfig(({ mode, command }) => {
   const designInspectorEnabled = process.env.HF_DESIGN_INSPECTOR === "1" || mode === "design";
 
   return {
+    server: {
+      watch: {
+        ignored: ["**/data/**", "**/*.json"],
+      },
+    },
     resolve: {
       alias: [
         { find: /^@higgsfield-ai\/icons(\/.*)?$/, replacement: QUANTA_ICONS_SHIM },

@@ -13,10 +13,10 @@ function HomePage() {
 
   useEffect(() => {
     const session = getActiveSession();
-    if (session && (!currentUser || currentUser.email !== session.email)) {
+    if (session) {
       setCurrentUser(session);
     }
-  }, [currentUser]);
+  }, []);
 
   if (!currentUser) {
     return (

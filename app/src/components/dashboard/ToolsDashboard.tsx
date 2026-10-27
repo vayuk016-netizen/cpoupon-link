@@ -74,10 +74,6 @@ export function ToolsDashboard({
   const [isBatchDetecting, setIsBatchDetecting] = useState(false);
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
 
-  // Method 2: Silent Background Auto-Scan states & session cache
-  const [isSilentScanning, setIsSilentScanning] = useState(false);
-  const silentScannedRef = useRef<Set<string>>(new Set());
-
   // Form instant auto-detect state
   const [formAutoDetect, setFormAutoDetect] = useState<{
     isDetecting: boolean;
@@ -179,93 +175,6 @@ export function ToolsDashboard({
       isMounted = false;
     };
   }, []);
-
-  // 2. Method 2: Automatic Silent In-Dashboard Auto-Check for Gemini links
-  // Smoothly throttled and debounced to never stutter navigation or refresh
-  const isScanningRef = useRef(false);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (isScanningRef.current) return;
-
-      const candidates = items.filter(
-        (it) =>
-          (it.category === "gemini" || it.urlOrCode.includes("one.google.com")) &&
-          it.urlOrCode.startsWith("http") &&
-          (!it.googleCheckStatus || !silentScannedRef.current.has(it.id))
-      );
-
-      if (candidates.length === 0) return;
-
-      isScanningRef.current = true;
-      setIsSilentScanning(true);
-
-      (async () => {
-        for (const it of candidates) {
-          silentScannedRef.current.add(it.id);
-
-          try {
-            const res = await probeGooglePromoUrlServerFn({ data: { url: it.urlOrCode } });
-            const now = new Date().toISOString();
-            let updated: ToolItem = { ...it };
-
-            if (res.status === "REDEEMED") {
-              updated = {
-                ...it,
-                status: "ACTIVATED",
-                activatedAt: it.activatedAt || now,
-                googleCheckStatus: "REDEEMED",
-                googleCheckedAt: now,
-              };
-              if (it.status !== "ACTIVATED") {
-                showToast(`⚡ Auto Detect: [${it.title}] ត្រូវបាន Activate រួចរាល់!`);
-              }
-            } else if (res.status === "AVAILABLE") {
-              updated = {
-                ...it,
-                googleCheckStatus: "AVAILABLE",
-                googleCheckedAt: now,
-              };
-            } else if (res.status === "EXPIRED") {
-              updated = {
-                ...it,
-                status: "EXPIRED",
-                googleCheckStatus: "EXPIRED",
-                googleCheckedAt: now,
-              };
-            }
-
-            setItems((prev) => prev.map((item) => (item.id === it.id ? updated : item)));
-            await saveToolServerFn({ data: updated as ServerToolItem });
-          } catch (e) {
-            void e;
-          }
-          // Non-blocking spacing between checks to keep browser at 60fps
-          await new Promise((r) => setTimeout(r, 350));
-        }
-        isScanningRef.current = false;
-        setIsSilentScanning(false);
-      })();
-    }, 1200);
-
-    return () => clearTimeout(timer);
-  }, [items.length]);
-
-  // Periodic interval (every 4 minutes) to reset scanned cache for ACTIVE items without re-rendering
-  useEffect(() => {
-    const interval = setInterval(() => {
-      items.forEach((it) => {
-        if (
-          (it.category === "gemini" || it.urlOrCode.includes("one.google.com")) &&
-          it.status === "ACTIVE"
-        ) {
-          silentScannedRef.current.delete(it.id);
-        }
-      });
-    }, 4 * 60 * 1000);
-
-    return () => clearInterval(interval);
-  }, [items]);
 
   // Debounced LocalStorage persistence (400ms) to eliminate main-thread stuttering
   const saveTimeoutRef = useRef<any>(null);
@@ -1343,23 +1252,6 @@ export function ToolsDashboard({
             >
               <span className={`w-2 h-2 rounded-full ${databaseMode === "supabase" ? "bg-emerald-400 animate-pulse" : "bg-purple-300"}`} />
               <span>{databaseMode === "supabase" ? "Supabase DB" : "Local Vault"}</span>
-            </div>
-
-            {/* Method 2: Live Silent Background Auto-Scan Status Pill */}
-            <div
-              className={`hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border transition shadow-xs ${
-                isSilentScanning
-                  ? "bg-blue-500/30 text-blue-200 border-blue-400/60"
-                  : "bg-white/10 text-purple-200 border-white/20"
-              }`}
-              title="Method 2: Silent In-Dashboard Auto-Scan for Gemini Pro links"
-            >
-              <span className={`w-2 h-2 rounded-full ${isSilentScanning ? "bg-blue-400 animate-ping" : "bg-emerald-400"}`} />
-              <span>
-                {isSilentScanning
-                  ? "Auto-Detecting Gemini..."
-                  : "Gemini Auto-Scan: Live"}
-              </span>
             </div>
 
             {/* Language Pill */}
