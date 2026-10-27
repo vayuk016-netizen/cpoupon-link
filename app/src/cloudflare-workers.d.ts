@@ -4,3 +4,8 @@
 declare module "cloudflare:workers" {
   export const env: unknown;
 }
+
+declare module "postgres" {
+  const postgres: any;
+  export default postgres;
+}

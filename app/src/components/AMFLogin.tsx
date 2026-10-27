@@ -32,7 +32,7 @@ const translations = {
     rememberMe: "Remember me",
     noAccount: "Don't have an account?",
     contactAdmin: "Contact your administrator",
-    copyright: "© 2026 AMF Express Co.,Ltd. All rights reserved.",
+    copyright: "© 2026 Sopha Store. All rights reserved.",
     successMsg: "Successfully signed in! Credentials saved.",
     adminModalTitle: "Contact Administrator",
     adminModalDesc:
@@ -61,7 +61,7 @@ const translations = {
     rememberMe: "ចងចាំគណនីខ្ញុំ",
     noAccount: "មិនទាន់មានគណនីមែនទេ?",
     contactAdmin: "ទាក់ទងអ្នកគ្រប់គ្រងប្រព័ន្ធ",
-    copyright: "រក្សាសិទ្ធិគ្រប់យ៉ាង © 2026 AMF Express Co.,Ltd.",
+    copyright: "រក្សាសិទ្ធិគ្រប់យ៉ាង © 2026 Sopha Store",
     successMsg: "បានចូលប្រើប្រាស់ដោយជោគជ័យ និងរក្សាទុកក្នុង Database!",
     adminModalTitle: "ទាក់ទងអ្នកគ្រប់គ្រងប្រព័ន្ធ",
     adminModalDesc:

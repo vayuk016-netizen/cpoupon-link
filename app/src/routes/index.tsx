@@ -7,14 +7,16 @@ import { getActiveSession, clearActiveSession, type AuthUser } from "../lib/auth
 export const Route = createFileRoute("/")({ component: HomePage });
 
 function HomePage() {
-  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => {
+    return getActiveSession();
+  });
 
   useEffect(() => {
     const session = getActiveSession();
-    if (session) {
+    if (session && (!currentUser || currentUser.email !== session.email)) {
       setCurrentUser(session);
     }
-  }, []);
+  }, [currentUser]);
 
   if (!currentUser) {
     return (

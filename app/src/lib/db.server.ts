@@ -55,7 +55,7 @@ export async function getDatabaseCoupons(): Promise<ServerToolItem[] | null> {
       ORDER BY created_at DESC
     `;
 
-    return rows.map((r) => ({
+    return rows.map((r: any) => ({
       id: r.id,
       category: r.category || "gemini",
       title: r.title || "",

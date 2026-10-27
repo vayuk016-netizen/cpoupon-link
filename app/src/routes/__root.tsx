@@ -16,8 +16,8 @@ function assetUrl(value: string | null | undefined): string | null {
   catch { return value; }
 }
 function buildHead(meta: AppMeta) {
-  const title = meta.og_title ?? "Coupon Link Vault";
-  const description = meta.og_description ?? "A private, device-local archive for saving coupon links, tracking expiry dates, and backing up your records.";
+  const title = meta.og_title ?? "Sopha Store";
+  const description = meta.og_description ?? "Sopha Store - Digital Tools, Coupon Passes & License Vault";
   const image = assetUrl(meta.og_image_url); const favicon = assetUrl(meta.favicon_url); const video = assetUrl(meta.og_video_url);
   return { meta: [
     { charSet: "utf-8" }, { name: "viewport", content: "width=device-width, initial-scale=1" }, { title },
