@@ -1,5 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { bindings } from "../bindings.server";
+import {
+  isDatabaseConfigured,
+  getDatabaseCoupons,
+  saveDatabaseCoupon,
+  deleteDatabaseCoupon,
+} from "../db.server";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
@@ -86,11 +92,29 @@ function writeLocalBackendTools(tools: ServerToolItem[]): void {
   }
 }
 
-// 1. Get All Tools from Backend
+// 1. Get All Tools from Backend (Supabase PostgreSQL -> D1 -> Local File)
 export const getToolsServerFn = createServerFn({ method: "GET" }).handler(
   async () => {
-    const { DB } = bindings();
+    // Priority 1: Supabase PostgreSQL Database
+    if (isDatabaseConfigured()) {
+      try {
+        const dbCoupons = await getDatabaseCoupons();
+        if (dbCoupons !== null) {
+          const evaluatedTools = dbCoupons.map((t) => ({
+            ...t,
+            status: computeAutoStatus(t.expiryDate, t.activatedAt, t.status),
+          }));
+          // Sync local cache
+          writeLocalBackendTools(evaluatedTools);
+          return { success: true, tools: evaluatedTools, database: "supabase" };
+        }
+      } catch (dbErr) {
+        console.error("Supabase getTools error, falling back:", dbErr);
+      }
+    }
 
+    // Priority 2: Cloudflare D1
+    const { DB } = bindings();
     if (DB) {
       try {
         await DB.prepare(
@@ -140,27 +164,27 @@ export const getToolsServerFn = createServerFn({ method: "GET" }).handler(
           status: computeAutoStatus(t.expiryDate, t.activatedAt, t.status),
         }));
 
-        return { success: true, tools: evaluatedTools };
+        return { success: true, tools: evaluatedTools, database: "d1" };
       } catch (err) {
         console.error("D1 getTools error, falling back to local file:", err);
       }
     }
 
+    // Priority 3: Local file storage
     const tools = readLocalBackendTools();
     const evaluatedTools = tools.map((t) => ({
       ...t,
       status: computeAutoStatus(t.expiryDate, t.activatedAt, t.status),
     }));
 
-    return { success: true, tools: evaluatedTools };
+    return { success: true, tools: evaluatedTools, database: "local_file" };
   }
 );
 
-// 2. Save (Create or Update) Tool on Backend
+// 2. Save (Create or Update) Tool to Database
 export const saveToolServerFn = createServerFn({ method: "POST" })
   .validator((data: ServerToolItem) => data)
   .handler(async ({ data }) => {
-    const { DB } = bindings();
     const now = new Date().toISOString();
 
     // Auto-compute status before saving
@@ -170,6 +194,19 @@ export const saveToolServerFn = createServerFn({ method: "POST" })
       status: computedStatus,
     };
 
+    let savedToSupabase = false;
+
+    // 1. Save to Supabase PostgreSQL Database
+    if (isDatabaseConfigured()) {
+      try {
+        savedToSupabase = await saveDatabaseCoupon(itemToSave);
+      } catch (dbErr) {
+        console.error("Supabase saveTool error:", dbErr);
+      }
+    }
+
+    // 2. Save to Cloudflare D1 if present
+    const { DB } = bindings();
     if (DB) {
       try {
         await DB.prepare(
@@ -214,14 +251,12 @@ export const saveToolServerFn = createServerFn({ method: "POST" })
             now
           )
           .run();
-
-        return { success: true, item: itemToSave };
       } catch (err) {
-        console.error("D1 saveTool error, falling back to local file:", err);
+        console.error("D1 saveTool error:", err);
       }
     }
 
-    // Local dev persistence
+    // 3. Always mirror to local file cache as backup
     const current = readLocalBackendTools();
     const existingIndex = current.findIndex((t) => t.id === itemToSave.id);
     if (existingIndex >= 0) {
@@ -231,26 +266,39 @@ export const saveToolServerFn = createServerFn({ method: "POST" })
     }
     writeLocalBackendTools(current);
 
-    return { success: true, item: itemToSave };
+    return { 
+      success: true, 
+      item: itemToSave, 
+      database: savedToSupabase ? "supabase" : "local_file" 
+    };
   });
 
-// 3. Delete Tool on Backend
+// 3. Delete Tool from Database
 export const deleteToolServerFn = createServerFn({ method: "POST" })
   .validator((data: { id: string }) => data)
   .handler(async ({ data }) => {
-    const { DB } = bindings();
+    // 1. Delete from Supabase PostgreSQL Database
+    if (isDatabaseConfigured()) {
+      try {
+        await deleteDatabaseCoupon(data.id);
+      } catch (dbErr) {
+        console.error("Supabase deleteTool error:", dbErr);
+      }
+    }
 
+    // 2. Delete from Cloudflare D1 if present
+    const { DB } = bindings();
     if (DB) {
       try {
         await DB.prepare(`DELETE FROM system_tools WHERE id = ?`)
           .bind(data.id)
           .run();
-        return { success: true, id: data.id };
       } catch (err) {
-        console.error("D1 deleteTool error, falling back to local file:", err);
+        console.error("D1 deleteTool error:", err);
       }
     }
 
+    // 3. Delete from local file
     const current = readLocalBackendTools();
     const updated = current.filter((t) => t.id !== data.id);
     writeLocalBackendTools(updated);

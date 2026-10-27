@@ -64,6 +64,7 @@ export function ToolsDashboard({
   const [editingItem, setEditingItem] = useState<ToolItem | null>(null);
   const [copyToast, setCopyToast] = useState("");
   const [isLoadingBackend, setIsLoadingBackend] = useState(false);
+  const [databaseMode, setDatabaseMode] = useState<string>("local");
 
   // Google Live Link Detection states
   const [detectingItem, setDetectingItem] = useState<ToolItem | null>(null);
@@ -129,11 +130,14 @@ export function ToolsDashboard({
     setLoaderProgress(30);
 
     getToolsServerFn()
-      .then((res) => {
+      .then((res: any) => {
         setLoaderProgress(85);
+        if (res.database) {
+          setDatabaseMode(res.database);
+        }
         if (res.success && Array.isArray(res.tools)) {
           // If backend has tools, use backend tools with re-evaluated auto-status
-          const evaluated = res.tools.map((t) => ({
+          const evaluated = res.tools.map((t: any) => ({
             ...t,
             status: computeAutoStatus(t.expiryDate, t.activatedAt, t.status),
           }));
@@ -571,13 +575,19 @@ export function ToolsDashboard({
       };
 
       setItems((prev) => prev.map((it) => (it.id === editingItem.id ? updated : it)));
-      showToast("✓ បានកែប្រែ Pass ជោគជ័យ!");
 
       // Backend sync
       try {
-        await saveToolServerFn({ data: updated as ServerToolItem });
+        const res: any = await saveToolServerFn({ data: updated as ServerToolItem });
+        if (res?.database === "supabase") {
+          setDatabaseMode("supabase");
+          showToast("✓ បានរក្សាទុកក្នុង Supabase Database ជោគជ័យ!");
+        } else {
+          showToast("✓ បានកែប្រែ Pass ជោគជ័យ!");
+        }
       } catch (err) {
         console.error("Backend save error:", err);
+        showToast("✓ បានកែប្រែ Pass (Saved Locally)");
       }
     } else {
       const isActivated = fStatus === "ACTIVATED";
@@ -601,13 +611,19 @@ export function ToolsDashboard({
       };
 
       setItems((prev) => [newItem, ...prev]);
-      showToast("✓ បានបង្កើត Pass ថ្មីដោយជោគជ័យ!");
 
       // Backend sync
       try {
-        await saveToolServerFn({ data: newItem as ServerToolItem });
+        const res: any = await saveToolServerFn({ data: newItem as ServerToolItem });
+        if (res?.database === "supabase") {
+          setDatabaseMode("supabase");
+          showToast("✓ បានរក្សាទុកក្នុង Supabase Database ជោគជ័យ!");
+        } else {
+          showToast("✓ បានបង្កើត Pass ថ្មីដោយជោគជ័យ!");
+        }
       } catch (err) {
         console.error("Backend save error:", err);
+        showToast("✓ បានបង្កើត Pass (Saved Locally)");
       }
     }
     setCurrentView("list");
@@ -1029,8 +1045,21 @@ export function ToolsDashboard({
             )}
           </div>
 
-          {/* Right: Language Pill, Moon Theme, Notification Bell */}
-          <div className="flex items-center gap-3">
+          {/* Right: DB Badge, Language Pill, Moon Theme, Notification Bell */}
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            {/* Database Cloud Live Status Badge */}
+            <div 
+              className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border transition shadow-xs ${
+                databaseMode === "supabase"
+                  ? "bg-emerald-500/25 text-emerald-300 border-emerald-400/50"
+                  : "bg-white/10 text-purple-200 border-white/20"
+              }`}
+              title={databaseMode === "supabase" ? "Connected directly to Supabase PostgreSQL Database" : "Using Local Storage Cache"}
+            >
+              <span className={`w-2 h-2 rounded-full ${databaseMode === "supabase" ? "bg-emerald-400 animate-pulse" : "bg-purple-300"}`} />
+              <span>{databaseMode === "supabase" ? "Supabase DB" : "Local Vault"}</span>
+            </div>
+
             {/* Language Pill */}
             <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 text-xs font-semibold hover:bg-white/20 transition cursor-pointer">
               <span className="text-sm">文A</span>
